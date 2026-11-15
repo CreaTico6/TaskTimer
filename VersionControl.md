@@ -4,6 +4,16 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.4.1] — 2026-11-15
+
+### Changed
+- `tasktimer/indicator.py`: Removed the `"✕ Close"` button from the `TaskTimerCardPopup` footer, keeping `"🖥 Terminal"`.
+
+## [0.4.0] — 2026-11-15
+
+### Added / Changed
+- `tasktimer/indicator.py`: Replaced the plain `Gtk.Menu` on the floating pill with `TaskTimerCardPopup`, a dark rounded GTK3 card featuring the active task title/description, live countdown, `Gtk.ProgressBar`, horizontal action buttons (`Pause/Resume`, `Done`, `+5m`), clickable task-switcher buttons, and `Terminal` / `Close` footer buttons.
+
 ## [0.3.5] — 2026-11-15
 
 ### Changed

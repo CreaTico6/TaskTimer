@@ -7,11 +7,13 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
 from tasktimer.storage import (
     TaskStore,
+    current_elapsed,
     format_duration,
     get_runtime_dir,
     remaining_seconds,
@@ -283,6 +285,225 @@ class TaskTimerAppIndicator(_BaseIndicatorController):
         self.indicator.set_menu(menu)
 
 
+class TaskTimerCardPopup:
+    """Sleek dark GTK3 card popup with progress bar, action buttons, and task switcher."""
+
+    def __init__(self, controller: TaskTimerFloatingPill) -> None:
+        self.ctrl = controller
+        self.Gtk = controller.Gtk
+        self.Gdk = controller.Gdk
+        self._card_signature: tuple[Any, ...] | None = None
+        self._last_focus_out = 0.0
+        self._time_label: Any = None
+        self._progress_bar: Any = None
+
+        self.popup = self.Gtk.Window(type=self.Gtk.WindowType.TOPLEVEL)
+        self.popup.set_title("TiSoft TaskTimer")
+        self.popup.set_decorated(False)
+        self.popup.set_keep_above(True)
+        self.popup.set_skip_taskbar_hint(True)
+        self.popup.set_skip_pager_hint(True)
+        self.popup.set_resizable(False)
+        self.popup.stick()
+        self.popup.set_type_hint(self.Gdk.WindowTypeHint.POPUP_MENU)
+        self.popup.get_style_context().add_class("tasktimer-card")
+
+        self.popup.connect("focus-out-event", self._on_focus_out)
+        self.popup.connect("key-press-event", self._on_key_press)
+
+        self.root_box = self.Gtk.Box(orientation=self.Gtk.Orientation.VERTICAL, spacing=10)
+        self.popup.add(self.root_box)
+
+    def _on_focus_out(self, _widget: Any, _event: Any) -> bool:
+        self._last_focus_out = time.monotonic()
+        self.hide()
+        return False
+
+    def _on_key_press(self, _widget: Any, event: Any) -> bool:
+        if event.keyval == self.Gdk.KEY_Escape:
+            self.hide()
+            return True
+        return False
+
+    def is_visible(self) -> bool:
+        return bool(self.popup.get_visible())
+
+    def hide(self) -> None:
+        if self.popup.get_visible():
+            self.popup.hide()
+
+    def toggle(self, anchor_window: Any) -> None:
+        if self.popup.get_visible() or (time.monotonic() - self._last_focus_out) < 0.18:
+            self.hide()
+            return
+        self.update(force=True)
+        self.popup.show_all()
+        self._position_near(anchor_window)
+        self.popup.present()
+
+    def _position_near(self, anchor_window: Any) -> None:
+        display = self.Gdk.Display.get_default()
+        if display is None:
+            return
+        ax, ay = anchor_window.get_position()
+        aw, ah = anchor_window.get_size()
+        pw, ph = self.popup.get_size()
+        monitor = display.get_monitor_at_point(ax, ay) or display.get_primary_monitor() or display.get_monitor(0)
+        work = monitor.get_workarea()
+
+        x = min(max(work.x + 8, ax + aw - pw), work.x + work.width - pw - 8)
+        y = ay + ah + 6
+        if y + ph > work.y + work.height - 8:
+            y = max(work.y + 8, ay - ph - 6)
+        self.popup.move(x, y)
+
+    def _make_button(self, label: str, css_class: str, callback: Any) -> Any:
+        btn = self.Gtk.Button(label=label)
+        btn.get_style_context().add_class(css_class)
+        btn.set_relief(self.Gtk.ReliefStyle.NONE)
+        btn.connect("clicked", lambda _b: callback())
+        return btn
+
+    def _active_time_text(self, active: dict[str, Any]) -> tuple[str, float, bool]:
+        rem = remaining_seconds(active)
+        alloc = int(active["allocated_seconds"])
+        elapsed = current_elapsed(active)
+        ratio = min(1.0, max(0.0, elapsed / max(1, alloc)))
+        state = "Running" if active["status"] == "running" else "Paused"
+        if rem >= 0:
+            text = f"{state} • {format_duration(rem)} left / {format_duration(alloc)}"
+        else:
+            text = f"Overtime • {format_duration(rem, show_sign=True)} / {format_duration(alloc)}"
+        return text, ratio, (active["status"] == "running" and rem < 0)
+
+    def _rebuild(self, tasks: list[dict[str, Any]], active: dict[str, Any] | None) -> None:
+        for child in self.root_box.get_children():
+            self.root_box.remove(child)
+        self._time_label = None
+        self._progress_bar = None
+
+        # Active task card section
+        active_box = self.Gtk.Box(orientation=self.Gtk.Orientation.VERTICAL, spacing=6)
+        active_box.get_style_context().add_class("tasktimer-active-card")
+
+        if active is not None:
+            title_lbl = self.Gtk.Label(label=f"#{active['id']}  {active['title']}")
+            title_lbl.get_style_context().add_class("tasktimer-card-title")
+            title_lbl.set_xalign(0.0)
+            title_lbl.set_line_wrap(True)
+            title_lbl.set_max_width_chars(34)
+            active_box.pack_start(title_lbl, False, False, 0)
+
+            if active.get("description"):
+                desc_lbl = self.Gtk.Label(label=active["description"])
+                desc_lbl.get_style_context().add_class("tasktimer-card-desc")
+                desc_lbl.set_xalign(0.0)
+                desc_lbl.set_line_wrap(True)
+                desc_lbl.set_max_width_chars(38)
+                active_box.pack_start(desc_lbl, False, False, 0)
+
+            time_txt, ratio, is_overtime = self._active_time_text(active)
+            self._time_label = self.Gtk.Label(label=time_txt)
+            self._time_label.get_style_context().add_class("tasktimer-card-time")
+            if is_overtime:
+                self._time_label.get_style_context().add_class("overtime")
+            self._time_label.set_xalign(0.0)
+            active_box.pack_start(self._time_label, False, False, 0)
+
+            self._progress_bar = self.Gtk.ProgressBar()
+            self._progress_bar.get_style_context().add_class("tasktimer-progress")
+            self._progress_bar.set_fraction(ratio)
+            active_box.pack_start(self._progress_bar, False, False, 2)
+
+            btn_row = self.Gtk.Box(orientation=self.Gtk.Orientation.HORIZONTAL, spacing=6)
+            toggle_lbl = "⏸ Pause" if active["status"] == "running" else "▶ Resume"
+            btn_row.pack_start(
+                self._make_button(toggle_lbl, "tasktimer-btn", lambda: self.ctrl._action(self.ctrl.store.toggle_active)),
+                True,
+                True,
+                0,
+            )
+            btn_row.pack_start(
+                self._make_button("✔ Done", "tasktimer-btn", lambda: self.ctrl._action(self.ctrl.store.complete_task)),
+                True,
+                True,
+                0,
+            )
+            tid = int(active["id"])
+            btn_row.pack_start(
+                self._make_button("➕ +5m", "tasktimer-btn", lambda t=tid: self.ctrl._action(lambda: self.ctrl.store.add_time(t, 300))),
+                True,
+                True,
+                0,
+            )
+            active_box.pack_start(btn_row, False, False, 2)
+        else:
+            empty_lbl = self.Gtk.Label(label="No active task")
+            empty_lbl.get_style_context().add_class("tasktimer-card-desc")
+            empty_lbl.set_xalign(0.0)
+            active_box.pack_start(empty_lbl, False, False, 0)
+
+        self.root_box.pack_start(active_box, False, False, 0)
+
+        # Switch / Start task section
+        other_tasks = [t for t in tasks if active is None or int(t["id"]) != int(active["id"])]
+        if other_tasks:
+            sec_lbl = self.Gtk.Label(label="SWITCH / START TASK")
+            sec_lbl.get_style_context().add_class("tasktimer-section-title")
+            sec_lbl.set_xalign(0.0)
+            self.root_box.pack_start(sec_lbl, False, False, 0)
+
+            list_box = self.Gtk.Box(orientation=self.Gtk.Orientation.VERTICAL, spacing=4)
+            for task in other_tasks[:8]:
+                tid = int(task["id"])
+                rem = format_duration(remaining_seconds(task), show_sign=True)
+                btn = self._make_button(
+                    f"▶  #{tid} {_truncate(task['title'], 24)}   ({rem})",
+                    "tasktimer-switch-btn",
+                    lambda t=tid: self.ctrl._action(lambda: self.ctrl.store.start_task(t)),
+                )
+                child = btn.get_child()
+                if child is not None:
+                    child.set_xalign(0.0)
+                list_box.pack_start(btn, False, False, 0)
+            self.root_box.pack_start(list_box, False, False, 0)
+
+        # Footer button
+        footer = self.Gtk.Box(orientation=self.Gtk.Orientation.HORIZONTAL, spacing=6)
+        footer.pack_start(
+            self._make_button("🖥 Terminal", "tasktimer-footer-btn", self._open_terminal_and_hide),
+            True,
+            True,
+            0,
+        )
+        self.root_box.pack_start(footer, False, False, 0)
+        self.root_box.show_all()
+        self.popup.resize(1, 1)
+
+    def _open_terminal_and_hide(self) -> None:
+        self.hide()
+        _open_terminal_manager()
+
+    def update(self, force: bool = False) -> None:
+        if not force and not self.popup.get_visible():
+            return
+        tasks = self.ctrl.store.list_tasks(include_done=False)
+        active = self.ctrl.store.get_active_task()
+        signature = tuple((t["id"], t["status"], t["title"], t.get("description", ""), t["allocated_seconds"]) for t in tasks)
+        if force or signature != self._card_signature:
+            self._card_signature = signature
+            self._rebuild(tasks, active)
+        elif active is not None and self._time_label is not None and self._progress_bar is not None:
+            time_txt, ratio, is_overtime = self._active_time_text(active)
+            self._time_label.set_text(time_txt)
+            ctx = self._time_label.get_style_context()
+            if is_overtime:
+                ctx.add_class("overtime")
+            else:
+                ctx.remove_class("overtime")
+            self._progress_bar.set_fraction(ratio)
+
+
 class TaskTimerFloatingPill(_BaseIndicatorController):
     """Always-on-top floating GTK3 pill (fallback when no GNOME tray extension is active)."""
 
@@ -329,18 +550,89 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
                 font-size: 13px;
                 padding: 0px 12px 5px 12px;
             }
-            menuitem.tasktimer-menu-section {
-                background-color: rgba(136, 192, 208, 0.14);
+            window.tasktimer-card {
+                background-color: #1e222a;
+                border: 1px solid #4c566a;
+                border-radius: 12px;
+                padding: 12px;
+                min-width: 280px;
+            }
+            .tasktimer-active-card {
+                background-color: #252a34;
                 border-left: 3px solid #88c0d0;
-                padding: 4px 8px;
+                border-radius: 8px;
+                padding: 10px;
             }
-            menuitem.tasktimer-menu-section:hover {
-                background-color: rgba(136, 192, 208, 0.30);
-            }
-            label.tasktimer-menu-header {
+            label.tasktimer-card-title {
+                color: #eceff4;
                 font-weight: bold;
-                opacity: 1.0;
-                color: @theme_fg_color;
+                font-size: 13px;
+            }
+            label.tasktimer-card-desc {
+                color: #9aa5b1;
+                font-size: 11px;
+            }
+            label.tasktimer-card-time {
+                color: #88c0d0;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            label.tasktimer-card-time.overtime {
+                color: #bf616a;
+            }
+            progressbar.tasktimer-progress trough {
+                background-color: #3b4252;
+                border-radius: 4px;
+                min-height: 6px;
+            }
+            progressbar.tasktimer-progress progress {
+                background-color: #88c0d0;
+                border-radius: 4px;
+                min-height: 6px;
+            }
+            label.tasktimer-section-title {
+                color: #88c0d0;
+                font-weight: bold;
+                font-size: 10px;
+                padding-left: 2px;
+            }
+            button.tasktimer-btn {
+                background-color: #2e3440;
+                color: #eceff4;
+                border: 1px solid #4c566a;
+                border-radius: 6px;
+                padding: 5px 8px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            button.tasktimer-btn:hover {
+                background-color: #3b4252;
+                border-color: #88c0d0;
+            }
+            button.tasktimer-switch-btn {
+                background-color: #252a34;
+                color: #d8dee9;
+                border: 1px solid #3b4252;
+                border-radius: 6px;
+                padding: 5px 8px;
+                font-size: 12px;
+            }
+            button.tasktimer-switch-btn:hover {
+                background-color: #3b4252;
+                border-color: #88c0d0;
+                color: #eceff4;
+            }
+            button.tasktimer-footer-btn {
+                background-color: transparent;
+                color: #9aa5b1;
+                border: 1px solid #3b4252;
+                border-radius: 6px;
+                padding: 4px 8px;
+                font-size: 11px;
+            }
+            button.tasktimer-footer-btn:hover {
+                background-color: #2e3440;
+                color: #eceff4;
             }
             """
         )
@@ -373,6 +665,7 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
 
         self.event_box.add(box)
         self.window.add(self.event_box)
+        self.card_popup = TaskTimerCardPopup(self)
         self.window.show_all()
 
     @staticmethod
@@ -431,6 +724,7 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
             ctx.remove_class("overtime")
         if not self._positioned:
             self._position_top_right()
+        self.card_popup.update(force=False)
 
     def _apply_menu(self, menu: Any) -> None:
         self.menu = menu
@@ -441,8 +735,8 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
             self._win_origin = self.window.get_position()
             self._was_dragged = False
             return True
-        if event.button == 3 and self.menu is not None:
-            self.menu.popup_at_pointer(event)
+        if event.button == 3:
+            self.card_popup.toggle(self.window)
             return True
         return False
 
@@ -462,8 +756,8 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
             self._drag_origin = None
             self._win_origin = None
             self._was_dragged = False
-            if not was_dragged and self.menu is not None:
-                self.menu.popup_at_pointer(event)
+            if not was_dragged:
+                self.card_popup.toggle(self.window)
             return True
         return False
 
