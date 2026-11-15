@@ -4,6 +4,21 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.6.1] — 2026-11-15
+
+### Fixed
+- `tasktimer/indicator.py`: Removed `set_app_paintable(True)` in `_enable_rgba()` and set `rgba(30, 34, 42, 0.95)` background on `window.tasktimer-card` and `rgba(30, 34, 42, 0.94)` on `window.tasktimer-pill` so the windows render solid/high-opacity with transparent rounded corners.
+
+## [0.6.0] — 2026-11-15
+
+### Added / Changed
+- `tasktimer/indicator.py`: Brought full feature parity with the terminal CLI to `TaskTimerCardPopup`:
+  - Inline **New Task** creation form (`➕ New` with title, description, duration, and immediate start toggle).
+  - Both **`-5m` and `+5m`** time adjustment buttons with inline validation.
+  - Task **removal** (`🗑`) on both active and queued tasks.
+  - Inline **Permanent History** view (`📜 History`, last 10 entries).
+  - Enabled RGBA visuals (`_enable_rgba`) on both the floating pill and card popup so CSS `border-radius: 12px` renders smooth, transparent rounded corners on X11.
+
 ## [0.5.2] — 2026-11-15
 
 ### Fixed / Improved

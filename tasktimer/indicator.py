@@ -17,6 +17,7 @@ from tasktimer.storage import (
     format_duration,
     get_data_dir,
     get_runtime_dir,
+    parse_duration,
     remaining_seconds,
 )
 
@@ -311,8 +312,17 @@ class TaskTimerAppIndicator(_BaseIndicatorController):
         self.indicator.set_menu(menu)
 
 
+def _enable_rgba(window: Any) -> None:
+    """Enable an RGBA visual on a Gtk.Window so CSS border-radius renders rounded corners."""
+    screen = window.get_screen()
+    if screen is not None:
+        visual = screen.get_rgba_visual()
+        if visual is not None:
+            window.set_visual(visual)
+
+
 class TaskTimerCardPopup:
-    """Sleek dark GTK3 card popup with progress bar, action buttons, and task switcher."""
+    """Sleek dark GTK3 card popup with full task management, history, and rounded corners."""
 
     def __init__(self, controller: TaskTimerFloatingPill) -> None:
         self.ctrl = controller
@@ -321,6 +331,8 @@ class TaskTimerCardPopup:
         self._card_signature: tuple[Any, ...] | None = None
         self._last_focus_out = 0.0
         self._shown_at = 0.0
+        self._mode = "main"
+        self._error_msg = ""
         self._time_label: Any = None
         self._progress_bar: Any = None
 
@@ -333,6 +345,7 @@ class TaskTimerCardPopup:
         self.popup.set_resizable(False)
         self.popup.stick()
         self.popup.set_type_hint(self.Gdk.WindowTypeHint.POPUP_MENU)
+        _enable_rgba(self.popup)
         self.popup.get_style_context().add_class("tasktimer-card")
 
         self.popup.connect("focus-out-event", self._on_focus_out)
@@ -365,6 +378,8 @@ class TaskTimerCardPopup:
         if self.popup.get_visible() or (time.monotonic() - self._last_focus_out) < 0.18:
             self.hide()
             return
+        self._mode = "main"
+        self._error_msg = ""
         self._shown_at = time.monotonic()
         self.update(force=True)
         self.popup.show_all()
@@ -408,12 +423,36 @@ class TaskTimerCardPopup:
             text = f"Overtime • {format_duration(rem, show_sign=True)} / {format_duration(alloc)}"
         return text, ratio, (active["status"] == "running" and rem < 0)
 
+    def _set_mode(self, mode: str) -> None:
+        self._mode = mode
+        self._error_msg = ""
+        self.update(force=True)
+
+    def _safe_adjust_time(self, task_id: int, delta_seconds: int) -> None:
+        try:
+            self._error_msg = ""
+            self.ctrl._action(lambda: self.ctrl.store.add_time(task_id, delta_seconds))
+        except ValueError as exc:
+            self._error_msg = str(exc)
+            self.update(force=True)
+
     def _rebuild(self, tasks: list[dict[str, Any]], active: dict[str, Any] | None) -> None:
         for child in self.root_box.get_children():
             self.root_box.remove(child)
         self._time_label = None
         self._progress_bar = None
 
+        if self._mode == "new":
+            self._rebuild_new_task_form()
+        elif self._mode == "history":
+            self._rebuild_history_view()
+        else:
+            self._rebuild_main_view(tasks, active)
+
+        self.root_box.show_all()
+        self.popup.resize(1, 1)
+
+    def _rebuild_main_view(self, tasks: list[dict[str, Any]], active: dict[str, Any] | None) -> None:
         # Active task card section
         active_box = self.Gtk.Box(orientation=self.Gtk.Orientation.VERTICAL, spacing=6)
         active_box.get_style_context().add_class("tasktimer-active-card")
@@ -447,28 +486,49 @@ class TaskTimerCardPopup:
             self._progress_bar.set_fraction(ratio)
             active_box.pack_start(self._progress_bar, False, False, 2)
 
-            btn_row = self.Gtk.Box(orientation=self.Gtk.Orientation.HORIZONTAL, spacing=6)
+            if self._error_msg:
+                err_lbl = self.Gtk.Label(label=self._error_msg)
+                err_lbl.get_style_context().add_class("tasktimer-card-error")
+                err_lbl.set_xalign(0.0)
+                active_box.pack_start(err_lbl, False, False, 0)
+
+            tid = int(active["id"])
+            btn_row1 = self.Gtk.Box(orientation=self.Gtk.Orientation.HORIZONTAL, spacing=6)
             toggle_lbl = "⏸ Pause" if active["status"] == "running" else "▶ Resume"
-            btn_row.pack_start(
+            btn_row1.pack_start(
                 self._make_button(toggle_lbl, "tasktimer-btn", lambda: self.ctrl._action(self.ctrl.store.toggle_active)),
                 True,
                 True,
                 0,
             )
-            btn_row.pack_start(
+            btn_row1.pack_start(
                 self._make_button("✔ Done", "tasktimer-btn", lambda: self.ctrl._action(self.ctrl.store.complete_task)),
                 True,
                 True,
                 0,
             )
-            tid = int(active["id"])
-            btn_row.pack_start(
-                self._make_button("➕ +5m", "tasktimer-btn", lambda t=tid: self.ctrl._action(lambda: self.ctrl.store.add_time(t, 300))),
+            btn_row1.pack_start(
+                self._make_button("🗑", "tasktimer-del-btn", lambda t=tid: self.ctrl._action(lambda: self.ctrl.store.remove_task(t))),
+                False,
+                False,
+                0,
+            )
+            active_box.pack_start(btn_row1, False, False, 2)
+
+            btn_row2 = self.Gtk.Box(orientation=self.Gtk.Orientation.HORIZONTAL, spacing=6)
+            btn_row2.pack_start(
+                self._make_button("➖ -5m", "tasktimer-btn", lambda t=tid: self._safe_adjust_time(t, -300)),
                 True,
                 True,
                 0,
             )
-            active_box.pack_start(btn_row, False, False, 2)
+            btn_row2.pack_start(
+                self._make_button("➕ +5m", "tasktimer-btn", lambda t=tid: self._safe_adjust_time(t, 300)),
+                True,
+                True,
+                0,
+            )
+            active_box.pack_start(btn_row2, False, False, 0)
         else:
             empty_lbl = self.Gtk.Label(label="No active task")
             empty_lbl.get_style_context().add_class("tasktimer-card-desc")
@@ -489,19 +549,39 @@ class TaskTimerCardPopup:
             for task in other_tasks[:8]:
                 tid = int(task["id"])
                 rem = format_duration(remaining_seconds(task), show_sign=True)
+                row = self.Gtk.Box(orientation=self.Gtk.Orientation.HORIZONTAL, spacing=4)
                 btn = self._make_button(
-                    f"▶  #{tid} {_truncate(task['title'], 24)}   ({rem})",
+                    f"▶  #{tid} {_truncate(task['title'], 22)}   ({rem})",
                     "tasktimer-switch-btn",
                     lambda t=tid: self.ctrl._action(lambda: self.ctrl.store.start_task(t)),
                 )
                 child = btn.get_child()
                 if child is not None:
                     child.set_xalign(0.0)
-                list_box.pack_start(btn, False, False, 0)
+                del_btn = self._make_button(
+                    "🗑",
+                    "tasktimer-del-btn",
+                    lambda t=tid: self.ctrl._action(lambda: self.ctrl.store.remove_task(t)),
+                )
+                row.pack_start(btn, True, True, 0)
+                row.pack_start(del_btn, False, False, 0)
+                list_box.pack_start(row, False, False, 0)
             self.root_box.pack_start(list_box, False, False, 0)
 
-        # Footer button
+        # Footer buttons
         footer = self.Gtk.Box(orientation=self.Gtk.Orientation.HORIZONTAL, spacing=6)
+        footer.pack_start(
+            self._make_button("➕ New", "tasktimer-footer-btn", lambda: self._set_mode("new")),
+            True,
+            True,
+            0,
+        )
+        footer.pack_start(
+            self._make_button("📜 History", "tasktimer-footer-btn", lambda: self._set_mode("history")),
+            True,
+            True,
+            0,
+        )
         footer.pack_start(
             self._make_button("🖥 Terminal", "tasktimer-footer-btn", self._open_terminal_and_hide),
             True,
@@ -509,8 +589,107 @@ class TaskTimerCardPopup:
             0,
         )
         self.root_box.pack_start(footer, False, False, 0)
-        self.root_box.show_all()
-        self.popup.resize(1, 1)
+
+    def _rebuild_new_task_form(self) -> None:
+        header = self.Gtk.Label(label="NEW TASK")
+        header.get_style_context().add_class("tasktimer-section-title")
+        header.set_xalign(0.0)
+        self.root_box.pack_start(header, False, False, 0)
+
+        form_box = self.Gtk.Box(orientation=self.Gtk.Orientation.VERTICAL, spacing=6)
+        form_box.get_style_context().add_class("tasktimer-active-card")
+
+        title_entry = self.Gtk.Entry()
+        title_entry.set_placeholder_text("Task title...")
+        title_entry.get_style_context().add_class("tasktimer-entry")
+
+        desc_entry = self.Gtk.Entry()
+        desc_entry.set_placeholder_text("Description (optional)")
+        desc_entry.get_style_context().add_class("tasktimer-entry")
+
+        dur_entry = self.Gtk.Entry()
+        dur_entry.set_text("25m")
+        dur_entry.set_placeholder_text("Duration (e.g. 25m, 1h30m)")
+        dur_entry.get_style_context().add_class("tasktimer-entry")
+
+        start_chk = self.Gtk.CheckButton(label="Start immediately")
+        start_chk.set_active(True)
+        start_chk.get_style_context().add_class("tasktimer-check")
+
+        err_lbl = self.Gtk.Label(label=self._error_msg)
+        err_lbl.get_style_context().add_class("tasktimer-card-error")
+        err_lbl.set_xalign(0.0)
+
+        def submit(_w: Any = None) -> None:
+            try:
+                seconds = parse_duration(dur_entry.get_text())
+                task = self.ctrl.store.add_task(
+                    title_entry.get_text(), seconds, desc_entry.get_text()
+                )
+                if start_chk.get_active():
+                    self.ctrl.store.start_task(int(task["id"]))
+                self._mode = "main"
+                self._error_msg = ""
+                self.ctrl._refresh(force_menu=True)
+                self.update(force=True)
+            except ValueError as exc:
+                err_lbl.set_text(str(exc))
+
+        title_entry.connect("activate", submit)
+        desc_entry.connect("activate", submit)
+        dur_entry.connect("activate", submit)
+
+        form_box.pack_start(title_entry, False, False, 0)
+        form_box.pack_start(desc_entry, False, False, 0)
+        form_box.pack_start(dur_entry, False, False, 0)
+        form_box.pack_start(start_chk, False, False, 0)
+        if self._error_msg:
+            form_box.pack_start(err_lbl, False, False, 0)
+        else:
+            form_box.pack_start(err_lbl, False, False, 0)
+        self.root_box.pack_start(form_box, False, False, 0)
+
+        actions = self.Gtk.Box(orientation=self.Gtk.Orientation.HORIZONTAL, spacing=6)
+        actions.pack_start(self._make_button("✔ Create", "tasktimer-btn", submit), True, True, 0)
+        actions.pack_start(self._make_button("Cancel", "tasktimer-footer-btn", lambda: self._set_mode("main")), True, True, 0)
+        self.root_box.pack_start(actions, False, False, 0)
+        title_entry.grab_focus()
+
+    def _rebuild_history_view(self) -> None:
+        header = self.Gtk.Label(label="PERMANENT HISTORY (LAST 10)")
+        header.get_style_context().add_class("tasktimer-section-title")
+        header.set_xalign(0.0)
+        self.root_box.pack_start(header, False, False, 0)
+
+        hist_box = self.Gtk.Box(orientation=self.Gtk.Orientation.VERTICAL, spacing=5)
+        hist_box.get_style_context().add_class("tasktimer-active-card")
+
+        entries = self.ctrl.store.list_history(limit=10)
+        if not entries:
+            empty = self.Gtk.Label(label="No history recorded yet.")
+            empty.get_style_context().add_class("tasktimer-card-desc")
+            empty.set_xalign(0.0)
+            hist_box.pack_start(empty, False, False, 0)
+        else:
+            for item in entries:
+                icon = "✔" if item.get("event") == "completed" else "🗑"
+                elapsed = format_duration(int(item.get("elapsed_seconds", 0)))
+                alloc = format_duration(int(item.get("allocated_seconds", 0)))
+                date_str = str(item.get("recorded_at", ""))[:10]
+                lbl = self.Gtk.Label(
+                    label=f"{icon} {_truncate(item['title'], 22)}  ({elapsed}/{alloc}) · {date_str}"
+                )
+                lbl.get_style_context().add_class("tasktimer-card-desc")
+                lbl.set_xalign(0.0)
+                hist_box.pack_start(lbl, False, False, 0)
+
+        self.root_box.pack_start(hist_box, False, False, 0)
+        self.root_box.pack_start(
+            self._make_button("← Back", "tasktimer-footer-btn", lambda: self._set_mode("main")),
+            False,
+            False,
+            0,
+        )
 
     def _open_terminal_and_hide(self) -> None:
         self.hide()
@@ -518,6 +697,8 @@ class TaskTimerCardPopup:
 
     def update(self, force: bool = False) -> None:
         if not force and not self.popup.get_visible():
+            return
+        if not force and self._mode != "main":
             return
         tasks = self.ctrl.store.list_tasks(include_done=False)
         active = self.ctrl.store.get_active_task()
@@ -557,17 +738,18 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
         self.window.set_resizable(False)
         self.window.stick()
         self.window.set_type_hint(gdk_mod.WindowTypeHint.UTILITY)
+        _enable_rgba(self.window)
 
         css = gtk_mod.CssProvider()
         css.load_from_data(
             b"""
             window.tasktimer-pill {
-                background-color: #1e222a;
+                background-color: rgba(30, 34, 42, 0.94);
                 border: 1px solid #4c566a;
                 border-radius: 12px;
             }
             window.tasktimer-pill.overtime {
-                background-color: #4c1d24;
+                background-color: rgba(76, 29, 36, 0.95);
                 border-color: #bf616a;
             }
             label.tasktimer-brand {
@@ -583,7 +765,7 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
                 padding: 0px 12px 5px 12px;
             }
             window.tasktimer-card {
-                background-color: #1e222a;
+                background-color: rgba(30, 34, 42, 0.95);
                 border: 1px solid #4c566a;
                 border-radius: 12px;
                 padding: 12px;
@@ -665,6 +847,36 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
             button.tasktimer-footer-btn:hover {
                 background-color: #2e3440;
                 color: #eceff4;
+            }
+            button.tasktimer-del-btn {
+                background-color: #2e3440;
+                color: #bf616a;
+                border: 1px solid #4c566a;
+                border-radius: 6px;
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+            button.tasktimer-del-btn:hover {
+                background-color: #4c1d24;
+                border-color: #bf616a;
+                color: #eceff4;
+            }
+            label.tasktimer-card-error {
+                color: #bf616a;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            entry.tasktimer-entry {
+                background-color: #2e3440;
+                color: #eceff4;
+                border: 1px solid #4c566a;
+                border-radius: 6px;
+                padding: 5px 8px;
+                font-size: 12px;
+            }
+            checkbutton.tasktimer-check label {
+                color: #d8dee9;
+                font-size: 12px;
             }
             """
         )
