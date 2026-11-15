@@ -4,7 +4,17 @@ BIN_DIR := $(HOME)/.local/bin
 FISH_CONF_DIR := $(HOME)/.config/fish/conf.d
 ROOT_DIR := $(CURDIR)
 
-.PHONY: install fish test uninstall
+.PHONY: install fish test uninstall help
+
+help:
+	@printf '%s\n' \
+		'TaskTimer Makefile targets:' \
+		'  make            Install symlinks (~/.local/bin) and Fish startup hook (default)' \
+		'  make install    Same as make' \
+		'  make fish       Install only the Fish startup hook' \
+		'  make test       Run the unit test suite' \
+		'  make uninstall  Run the interactive uninstaller' \
+		'  make help       Show this help message'
 
 install:
 	@chmod +x "$(ROOT_DIR)/bin/tasktimer" "$(ROOT_DIR)/uninstall.sh"

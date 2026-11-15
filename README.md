@@ -29,8 +29,10 @@ A lightweight terminal task manager with a **native GNOME top-bar / floating tim
 
 3. **Available `make` targets:**
    - `make` / `make install` — Install symlinks and Fish startup hook
+   - `make fish` — Install only the Fish startup hook
    - `make test` — Run the unit test suite
    - `make uninstall` — Run the interactive uninstaller
+   - `make help` — Show available targets
 
 4. **Data files** (created automatically):
    - `~/.local/share/tasktimer/tasks.json` (active tasks)

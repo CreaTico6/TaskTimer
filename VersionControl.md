@@ -4,6 +4,11 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.5.1] — 2026-11-15
+
+### Added
+- `Makefile`: Added `help` target (`make help`) and documented it in `README.md`.
+
 ## [0.5.0] — 2026-11-15
 
 ### Added / Changed
