@@ -16,6 +16,7 @@ from tasktimer.storage import (
     TaskStore,
     format_duration,
     parse_duration,
+    parse_signed_duration,
     remaining_seconds,
 )
 
@@ -96,7 +97,7 @@ def _interactive_loop(store: TaskStore, startup: bool = False) -> int:
         _print_tasks(store.list_tasks(include_done=True))
         print(
             "[1] New task      [2] Start/Switch     [3] Pause/Resume     [4] Complete\n"
-            "[5] +Time         [6] Remove           [7] Indicator (on/off) [8] History   [0] Exit"
+            "[5] +/-Time       [6] Remove           [7] Indicator (on/off) [8] History   [0] Exit"
         )
         try:
             choice = input("\nOption: ").strip()
@@ -130,9 +131,9 @@ def _interactive_loop(store: TaskStore, startup: bool = False) -> int:
             elif choice == "5":
                 tid = _prompt_int("Task ID: ")
                 if tid is not None:
-                    extra = input("How much time to add (e.g. 5m, 10m) [5m]: ").strip() or "5m"
-                    updated = store.add_time(tid, parse_duration(extra))
-                    print(f"➕ Task #{updated['id']} allocated time: {format_duration(updated['allocated_seconds'])}.")
+                    delta_raw = input("Time adjustment (e.g. +5m, -5m, 10m) [+5m]: ").strip() or "+5m"
+                    updated = store.add_time(tid, parse_signed_duration(delta_raw))
+                    print(f"⏱ Task #{updated['id']} allocated time: {format_duration(updated['allocated_seconds'])}.")
             elif choice == "6":
                 tid = _prompt_int("Task ID to remove: ")
                 if tid is not None:
@@ -180,9 +181,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_done = sub.add_parser("done", help="Complete a task (or the current active task).")
     p_done.add_argument("id", type=int, nargs="?", help="Optional task ID.")
 
-    p_addtime = sub.add_parser("addtime", help="Add allocated time to a task.")
+    p_addtime = sub.add_parser("addtime", help="Add or subtract allocated time (e.g. 5m or -- -5m).")
     p_addtime.add_argument("id", type=int, help="Task ID.")
-    p_addtime.add_argument("duration", nargs="?", default="5m", help="Extra time (e.g. 5m).")
+    p_addtime.add_argument("duration", nargs="?", default="5m", help="Time adjustment (e.g. +5m, -5m).")
 
     p_rm = sub.add_parser("rm", help="Remove a task by ID.")
     p_rm.add_argument("id", type=int, help="Task ID.")
@@ -229,8 +230,8 @@ def main(argv: list[str] | None = None) -> int:
             done = store.complete_task(args.id)
             print(f"✔ Task #{done['id']} '{done['title']}' completed.")
         elif args.command == "addtime":
-            updated = store.add_time(args.id, parse_duration(args.duration))
-            print(f"➕ Task #{updated['id']} now has {format_duration(updated['allocated_seconds'])} allocated.")
+            updated = store.add_time(args.id, parse_signed_duration(args.duration))
+            print(f"⏱ Task #{updated['id']} now has {format_duration(updated['allocated_seconds'])} allocated.")
         elif args.command == "rm":
             removed = store.remove_task(args.id)
             print(f"🗑 Task #{removed['id']} '{removed['title']}' removed.")

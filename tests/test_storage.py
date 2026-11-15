@@ -14,6 +14,7 @@ from tasktimer.storage import (
     current_elapsed,
     format_duration,
     parse_duration,
+    parse_signed_duration,
     remaining_seconds,
 )
 
@@ -24,6 +25,9 @@ class DurationParsingTests(unittest.TestCase):
         self.assertEqual(parse_duration("1h30m"), 5400)
         self.assertEqual(parse_duration("45s"), 45)
         self.assertEqual(parse_duration("15"), 900)
+        self.assertEqual(parse_signed_duration("+5m"), 300)
+        self.assertEqual(parse_signed_duration("-5m"), -300)
+        self.assertEqual(parse_signed_duration("-30s"), -30)
 
     def test_parse_invalid(self) -> None:
         for bad in ("", "0m", "-5m", "abc"):
@@ -82,6 +86,11 @@ class TaskStoreTests(unittest.TestCase):
         updated = self.store.add_time(t["id"], 300)
         self.assertEqual(updated["allocated_seconds"], 310)
         self.assertFalse(updated["notified_overtime"])
+
+        reduced = self.store.add_time(t["id"], -100)
+        self.assertEqual(reduced["allocated_seconds"], 210)
+        with self.assertRaises(ValueError):
+            self.store.add_time(t["id"], -210)
 
     def test_remaining_and_overtime_calculation(self) -> None:
         task = {

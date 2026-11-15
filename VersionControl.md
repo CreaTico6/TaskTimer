@@ -4,6 +4,13 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.3.1] — 2026-11-15
+
+### Changed
+- `tasktimer/storage.py`: Added `parse_signed_duration()` and updated `TaskStore.add_time()` to support both positive and negative adjustments while ensuring `allocated_seconds` stays above zero.
+- `tasktimer/cli.py`: Updated interactive option `[5] +/-Time` and `tt addtime` to accept both adding (`+5m`, `5m`) and subtracting (`-5m`, `-30s`) time.
+- `tests/test_storage.py`: Added unit tests for signed durations and negative time adjustments.
+
 ## [0.3.0] — 2026-11-15
 
 ### Added / Changed

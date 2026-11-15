@@ -60,6 +60,18 @@ def parse_duration(spec: str) -> int:
     return total
 
 
+def parse_signed_duration(spec: str) -> int:
+    """Parse a signed duration string (e.g. '+5m', '-5m', '10m', '-30s') into seconds."""
+    text = spec.strip()
+    if not text:
+        raise ValueError("Duration cannot be empty.")
+    sign = 1
+    if text[0] in ("+", "-"):
+        sign = -1 if text[0] == "-" else 1
+        text = text[1:].strip()
+    return sign * parse_duration(text)
+
+
 def format_duration(seconds: int, show_sign: bool = False) -> str:
     """Format seconds as HH:MM:SS or MM:SS (with optional '+' prefix for overtime)."""
     sign = ""
@@ -271,13 +283,16 @@ class TaskStore:
         self._save_raw(data)
         return target
 
-    def add_time(self, task_id: int, extra_seconds: int) -> dict[str, Any]:
-        """Add allocated time to a task and reset overtime alert if remaining > 0."""
-        if extra_seconds <= 0:
-            raise ValueError("Additional time must be greater than zero.")
+    def add_time(self, task_id: int, delta_seconds: int) -> dict[str, Any]:
+        """Adjust allocated time (positive or negative) and reset overtime alert if remaining > 0."""
+        if delta_seconds == 0:
+            raise ValueError("Time adjustment cannot be zero.")
         data = self._load_raw()
         target = self._find_task(data, task_id)
-        target["allocated_seconds"] = int(target["allocated_seconds"]) + int(extra_seconds)
+        new_allocated = int(target["allocated_seconds"]) + int(delta_seconds)
+        if new_allocated <= 0:
+            raise ValueError("Allocated time must remain greater than zero.")
+        target["allocated_seconds"] = new_allocated
         if remaining_seconds(target) > 0:
             target["notified_overtime"] = False
         self._save_raw(data)
