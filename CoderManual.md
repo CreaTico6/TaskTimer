@@ -1,7 +1,7 @@
 # TaskTimer — Coder Manual
 
 **Author:** `creatico6@github.com`  
-**Version:** `0.5.0`  
+**Version:** `0.8.0`  
 **Target Environment:** Unprivileged Linux Workstations (Ubuntu 22.04 LTS, GNOME Shell on X11, Fish shell, no `sudo`, no `pip` required)
 
 ---
@@ -11,13 +11,12 @@
 **TaskTimer** is a zero-dependency, userspace-only task manager and countdown timer built in Python 3.10 + GTK 3:
 
 - **One-time login prompt (`~/.config/fish/conf.d/tasktimer.fish`)**: Uses a session marker in `$XDG_RUNTIME_DIR` (automatically cleared on logout/reboot) to prompt `[Y/n]` only on the first interactive terminal opened after login.
-- **Terminal CLI (`tasktimer` / `tt`)**: Interactive menu and direct subcommands (`add`, `list`, `start`, `pause`, `done`, `addtime`, `rm`, `indicator`) backed by atomic JSON persistence (`~/.local/share/tasktimer/tasks.json`).
-- **Desktop Top-Bar Widget (`tasktimer/indicator.py`)**: Uses `AyatanaAppIndicator3` when GNOME's AppIndicator extension is active, and automatically falls back to an always-on-top, draggable GTK3 floating pill (`TaskTimerFloatingPill`) on restricted GNOME sessions where `ubuntu-appindicators@ubuntu.com` is not installed.
-- **Reproduce in 4 steps**:
-  1. Clone/copy the `TaskTimer/` directory into `~/Projects/TaskTimer`.
-  2. Symlink `bin/tasktimer` to `~/.local/bin/tasktimer` and `~/.local/bin/tt`.
-  3. Copy the Fish startup hook to `~/.config/fish/conf.d/tasktimer.fish`.
-  4. Run `python3 -m unittest discover -s tests -v` and launch `tt --startup`.
+- **Terminal CLI (`tasktimer` / `tt`)**: Interactive menu and direct subcommands (`add`, `list`, `start`, `pause`, `done`, `addtime`, `rm`, `history`, `indicator`) backed by atomic JSON persistence (`~/.local/share/tasktimer/tasks.json`) and an append-only permanent log (`history.jsonl`).
+- **Desktop Floating Widget & Card Popup (`tasktimer/indicator.py`)**: Uses `AyatanaAppIndicator3` when GNOME's AppIndicator extension is active, and automatically falls back to an always-on-top, draggable GTK3 floating pill (`TaskTimerFloatingPill`, showing up to 3 active tasks) + rounded dark card popup (`TaskTimerCardPopup` with progress bar, inline task creation, `+/-5m`, task removal, and history view).
+- **GNOME Top-Bar Toggle (`gnome-extension/tasktimer@creatico6`)**: Lightweight GNOME Shell 42–44 extension adding a permanent `⏱` button in the top bar to toggle the floating widget.
+- **Reproduce in 2 steps**:
+  1. `git clone https://github.com/CreaTico6/TaskTimer.git ~/Projects/TaskTimer`
+  2. `cd ~/Projects/TaskTimer && make` (then reload GNOME Shell once via `Alt+F2 -> r -> Enter` on X11).
 
 ---
 
@@ -42,11 +41,14 @@ Everything runs in **userspace** with no root privileges (`sudo`) and no `pip` p
 TaskTimer/
 ├── bin/
 │   └── tasktimer              # Executable entry point (symlinked to ~/.local/bin/tasktimer & tt)
+├── gnome-extension/
+│   └── tasktimer@creatico6/   # GNOME Shell 42–44 top-bar toggle extension (extension.js, metadata.json)
 ├── tasktimer/
 │   ├── __init__.py            # Package metadata & version
 │   ├── storage.py             # Atomic JSON storage, duration parser, countdown/overtime math
-│   ├── indicator.py           # PID-locked daemon: AppIndicator3 or GTK3 Floating Pill fallback
-│   └── cli.py                 # Interactive terminal menu & direct subcommands
+│   ├── indicator.py           # PID-locked daemon: AppIndicator3 or GTK3 Floating Pill + Card Popup
+│   ├── cli.py                 # Interactive terminal menu & direct subcommands
+│   └── updater.py             # Rate-limited (24h) git auto-updater & manual `tt update`
 ├── tests/
 │   └── test_storage.py        # Unit tests (stdlib unittest)
 ├── CoderManual.md             # This manual
@@ -61,9 +63,11 @@ TaskTimer/
 Runtime files (created automatically in XDG user directories):
 - `~/.local/share/tasktimer/tasks.json` — Active task list and timer state (IDs reset to `1` when empty).
 - `~/.local/share/tasktimer/history.jsonl` — Append-only permanent history of completed and removed tasks.
+- `~/.local/share/tasktimer/indicator.log` — Background indicator stderr log for diagnostics.
 - `$XDG_RUNTIME_DIR/tasktimer-indicator.pid` — Single-instance lock for the GUI daemon.
 - `$XDG_RUNTIME_DIR/tasktimer_session_prompted_<UID>` — Per-login-session marker for Fish.
 - `~/.config/fish/conf.d/tasktimer.fish` — Fish startup hook (kept separate from `config.fish` so `TiDefinitions.sh` updates never overwrite it).
+- `~/.local/share/gnome-shell/extensions/tasktimer@creatico6` — Symlink to the GNOME Shell top-bar extension.
 
 ---
 

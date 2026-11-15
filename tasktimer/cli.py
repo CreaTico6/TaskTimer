@@ -19,6 +19,7 @@ from tasktimer.storage import (
     parse_signed_duration,
     remaining_seconds,
 )
+from tasktimer.updater import check_for_updates
 
 _STATUS_BADGE = {
     "running": "▶ RUNNING ",
@@ -89,6 +90,8 @@ def _interactive_new_task(store: TaskStore) -> None:
 
 def _interactive_loop(store: TaskStore, startup: bool = False) -> int:
     if startup:
+        if check_for_updates(force=False) and is_indicator_running():
+            stop_indicator()
         started, _ = start_indicator_background()
         if started:
             print("⏱  Top-bar indicator started.")
@@ -194,6 +197,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p_hist = sub.add_parser("history", help="Show permanent task history.")
     p_hist.add_argument("-n", "--limit", type=int, default=20, help="Maximum entries to show.")
 
+    sub.add_parser("update", help="Check GitHub for updates and pull if available.")
+
     return parser
 
 
@@ -263,6 +268,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Indicator ACTIVE (PID {pid})." if pid else "Indicator INACTIVE.")
         elif args.command == "history":
             _print_history(store.list_history(limit=args.limit))
+        elif args.command == "update":
+            if check_for_updates(force=True) and is_indicator_running():
+                stop_indicator()
+                start_indicator_background()
     except (ValueError, KeyError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

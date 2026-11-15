@@ -17,6 +17,7 @@ from tasktimer.storage import (
     parse_signed_duration,
     remaining_seconds,
 )
+from tasktimer.updater import _mark_checked, should_check_now
 
 
 class DurationParsingTests(unittest.TestCase):
@@ -111,6 +112,16 @@ class TaskStoreTests(unittest.TestCase):
         self.store.remove_task(2)
         t3 = self.store.add_task("Fresh", 60)
         self.assertEqual(t3["id"], 1)
+
+
+class UpdaterCooldownTests(unittest.TestCase):
+    def test_should_check_now_respects_24h_cooldown(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / ".last_update_check"
+            self.assertTrue(should_check_now(marker, now=1000.0))
+            _mark_checked(marker, now=1000.0)
+            self.assertFalse(should_check_now(marker, now=1000.0 + 3600))
+            self.assertTrue(should_check_now(marker, now=1000.0 + 24 * 3600))
 
 
 if __name__ == "__main__":

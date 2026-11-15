@@ -57,7 +57,8 @@ tt start 1
 tt addtime 1 10m
 tt done 1
 tt history            # view permanent history
-tt indicator status   # start | stop | status
+tt update             # check GitHub for updates and pull
+tt indicator status   # start | stop | status | toggle
 ```
 
 ## Documentation, Uninstall & Tests

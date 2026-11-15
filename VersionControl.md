@@ -4,6 +4,21 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.8.0] — 2026-11-15
+
+### Added
+- `tasktimer/updater.py`: Added rate-limited auto-update check (at most once every 24h via `~/.local/share/tasktimer/.last_update_check`), using `git fetch` + `git pull --ff-only` when the working tree is clean.
+- `tasktimer/cli.py`: Runs the 24h update check on `tt --startup` and adds `tt update` for manual update checks.
+- `tests/test_storage.py`: Added `UpdaterCooldownTests` covering the 24-hour cooldown.
+- Updated `tasktimer/__init__.py`, `README.md`, `CoderManual.md`, and `VersionControl.md`.
+
+## [0.7.2] — 2026-11-15
+
+### Changed
+- `tasktimer/__init__.py`: Synchronized `__version__` to `"0.7.2"`.
+- `CoderManual.md`: Updated TL;DR, project layout, and runtime files to reflect `Makefile`, `TaskTimerCardPopup`, `history.jsonl`, `indicator.log`, and `gnome-extension/tasktimer@creatico6`.
+- `Oficina/randomstuff/TiDefinitions.sh`: Simplified TaskTimer installation to invoke `make -C "$TT_DIR" install`.
+
 ## [0.7.1] — 2026-11-15
 
 ### Changed
