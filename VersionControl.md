@@ -1,0 +1,32 @@
+# Version Control — TaskTimer
+
+**Author:** `creatico6@github.com`
+
+> This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
+
+## [0.2.1] — 2026-11-15
+
+### Changed
+- Removed environment-specific institutional references from documentation (`README.md`, `plan.md`, `CoderManual.md`, `VersionControl.md`).
+
+## [0.2.0] — 2026-11-15
+
+### Added / Changed
+- Added `CoderManual.md` with a TL;DR, full technical architecture, reproduction guide, and troubleshooting.
+- Translated all documentation (`README.md`, `plan.md`, `VersionControl.md`, `CoderManual.md`), Fish prompt, and Python source files (CLI, indicator, storage, tests) to English, with author references (`creatico6@github.com`).
+
+## [0.1.1] — 2026-11-15
+
+### Fixed / Improved
+- `tasktimer/indicator.py`: Detected that restricted GNOME sessions may not have `ubuntu-appindicators@ubuntu.com` installed/enabled in GNOME Shell. Added automatic fallback to an always-on-top, draggable GTK3 floating pill (`TaskTimerFloatingPill`) with overtime highlighting and dropdown menu, while preserving `AyatanaAppIndicator3` when the extension is enabled. Added `gi.require_version("Gdk", "3.0")` before importing `Gdk`.
+
+## [0.1.0] — 2026-11-15
+
+### Added
+- Initial project structure in `/home/tnuno-mo/Oficina/TaskTimer`.
+- `tasktimer/storage.py`: atomic JSON persistence in `~/.local/share/tasktimer/tasks.json`, duration parsing (`25m`, `1h30m`, `45s`), countdown and overtime calculation.
+- `tasktimer/indicator.py`: GNOME top-bar indicator daemon with PID lock, dynamic menu, and `notify-send` alerts.
+- `tasktimer/cli.py` and `bin/tasktimer`: interactive CLI and direct subcommands (`add`, `list`, `start`, `pause`, `done`, `addtime`, `rm`, `indicator`).
+- `~/.config/fish/conf.d/tasktimer.fish`: once-per-login interactive prompt without modifying the `TiDefinitions` block in `~/.config/fish/config.fish`.
+- `tests/test_storage.py`: unit test suite using stdlib `unittest`.
+- `README.md`, `plan.md`, and `VersionControl.md`.

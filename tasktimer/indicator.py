@@ -1,0 +1,427 @@
+"""GNOME top-bar indicator (AyatanaAppIndicator3 or floating GTK3 pill fallback)."""
+
+from __future__ import annotations
+
+import os
+import shutil
+import signal
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+from tasktimer.storage import (
+    TaskStore,
+    format_duration,
+    get_runtime_dir,
+    remaining_seconds,
+)
+
+
+def get_pid_file() -> Path:
+    """Return the indicator PID file path."""
+    return get_runtime_dir() / "tasktimer-indicator.pid"
+
+
+def read_indicator_pid() -> int | None:
+    """Return the running indicator PID, or None if not active."""
+    pid_file = get_pid_file()
+    if not pid_file.exists():
+        return None
+    try:
+        pid = int(pid_file.read_text(encoding="utf-8").strip())
+        os.kill(pid, 0)
+        return pid
+    except (ValueError, ProcessLookupError, PermissionError, OSError):
+        pid_file.unlink(missing_ok=True)
+        return None
+
+
+def is_indicator_running() -> bool:
+    """Check whether the indicator daemon is currently running."""
+    return read_indicator_pid() is not None
+
+
+def stop_indicator() -> bool:
+    """Stop the indicator daemon if it is running."""
+    pid = read_indicator_pid()
+    if pid is None:
+        return False
+    os.kill(pid, signal.SIGTERM)
+    get_pid_file().unlink(missing_ok=True)
+    return True
+
+
+def start_indicator_background() -> tuple[bool, int | None]:
+    """Start the indicator in the background if not already running.
+
+    Returns (started_now, pid).
+    """
+    existing = read_indicator_pid()
+    if existing is not None:
+        return False, existing
+
+    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        return False, None
+
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "tasktimer.indicator"],
+        cwd=str(Path(__file__).resolve().parent.parent),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    return True, proc.pid
+
+
+def _has_gnome_appindicator_extension() -> bool:
+    """Check if GNOME's AppIndicator extension is enabled in this session."""
+    gnome_ext = shutil.which("gnome-extensions")
+    if not gnome_ext:
+        return False
+    try:
+        out = subprocess.check_output(
+            [gnome_ext, "list", "--enabled"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        )
+        return "appindicators" in out.lower()
+    except Exception:
+        return False
+
+
+def _truncate(text: str, limit: int = 24) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _send_notification(title: str, body: str) -> None:
+    notifier = shutil.which("notify-send")
+    if not notifier:
+        return
+    subprocess.Popen(
+        [notifier, "-a", "TaskTimer", "-u", "normal", title, body],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _open_terminal_manager() -> None:
+    tasktimer_bin = shutil.which("tasktimer") or str(Path(__file__).resolve().parent.parent / "bin" / "tasktimer")
+    if shutil.which("gnome-terminal"):
+        cmd = ["gnome-terminal", "--", tasktimer_bin]
+    elif shutil.which("x-terminal-emulator"):
+        cmd = ["x-terminal-emulator", "-e", tasktimer_bin]
+    else:
+        return
+    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+class _BaseIndicatorController:
+    """Shared controller logic for AppIndicator3 and the floating GTK3 pill."""
+
+    def __init__(self, gtk_mod: Any, glib_mod: Any) -> None:
+        self.Gtk = gtk_mod
+        self.GLib = glib_mod
+        self.store = TaskStore()
+        self._menu_signature: tuple[Any, ...] | None = None
+        self._header_item: Any = None
+        self.menu: Any = None
+
+    def _format_top_label(self, active: dict[str, Any] | None) -> str:
+        if active is None:
+            return "⏱ TaskTimer"
+        rem = remaining_seconds(active)
+        title = _truncate(active["title"], 22)
+        if active["status"] == "running":
+            if rem >= 0:
+                return f"▶ {title} ({format_duration(rem)})"
+            return f"⚠ {title} ({format_duration(rem, show_sign=True)})"
+        return f"⏸ {title} ({format_duration(rem, show_sign=True)})"
+
+    def _format_header_text(self, active: dict[str, Any] | None) -> str:
+        if active is None:
+            return "No active task"
+        rem = remaining_seconds(active)
+        alloc = format_duration(int(active["allocated_seconds"]))
+        rem_txt = format_duration(rem, show_sign=True)
+        state = "Running" if active["status"] == "running" else "Paused"
+        desc = f" — {_truncate(active['description'], 36)}" if active.get("description") else ""
+        return f"#{active['id']} {active['title']}{desc} | {state}: {rem_txt} / {alloc}"
+
+    def _check_overtime_notification(self, active: dict[str, Any] | None) -> None:
+        if active is None or active["status"] != "running":
+            return
+        if remaining_seconds(active) <= 0 and not active.get("notified_overtime"):
+            self.store.mark_notified_overtime(int(active["id"]))
+            _send_notification(
+                "⏱ Allocated time finished!",
+                f"Task '{active['title']}' reached its time limit. Counting overtime.",
+            )
+
+    def _add_item(self, menu: Any, label: str, callback: Any = None, sensitive: bool = True) -> Any:
+        item = self.Gtk.MenuItem(label=label)
+        item.set_sensitive(sensitive)
+        if callback is not None:
+            item.connect("activate", callback)
+        menu.append(item)
+        return item
+
+    def _rebuild_menu(self, tasks: list[dict[str, Any]], active: dict[str, Any] | None) -> Any:
+        menu = self.Gtk.Menu()
+        self._header_item = self._add_item(menu, self._format_header_text(active), sensitive=False)
+        menu.append(self.Gtk.SeparatorMenuItem())
+
+        if active is not None:
+            toggle_label = "⏸ Pause" if active["status"] == "running" else "▶ Resume"
+            self._add_item(menu, toggle_label, lambda _w: self._action(self.store.toggle_active))
+            self._add_item(menu, "✔ Complete current task", lambda _w: self._action(self.store.complete_task))
+            self._add_item(
+                menu,
+                "➕ Add +5 min",
+                lambda _w, tid=int(active["id"]): self._action(lambda: self.store.add_time(tid, 300)),
+            )
+            menu.append(self.Gtk.SeparatorMenuItem())
+
+        other_tasks = [t for t in tasks if active is None or int(t["id"]) != int(active["id"])]
+        if other_tasks:
+            self._add_item(menu, "Switch / Start task:", sensitive=False)
+            for task in other_tasks[:10]:
+                rem = format_duration(remaining_seconds(task), show_sign=True)
+                label = f"  ▶ #{task['id']} {_truncate(task['title'], 28)} ({rem})"
+                self._add_item(
+                    menu,
+                    label,
+                    lambda _w, tid=int(task["id"]): self._action(lambda: self.store.start_task(tid)),
+                )
+            menu.append(self.Gtk.SeparatorMenuItem())
+
+        self._add_item(menu, "🖥 Open Terminal Manager", lambda _w: _open_terminal_manager())
+        self._add_item(menu, "❌ Close Indicator", lambda _w: self.quit())
+        menu.show_all()
+        self.menu = menu
+        return menu
+
+    def _refresh(self, force_menu: bool = False) -> None:
+        tasks = self.store.list_tasks(include_done=False)
+        active = self.store.get_active_task()
+        self._check_overtime_notification(active)
+
+        self._apply_label(self._format_top_label(active), active)
+        signature = tuple((t["id"], t["status"], t["title"], t["allocated_seconds"]) for t in tasks)
+        if force_menu or signature != self._menu_signature:
+            self._menu_signature = signature
+            menu = self._rebuild_menu(tasks, active)
+            self._apply_menu(menu)
+        elif self._header_item is not None:
+            self._header_item.set_label(self._format_header_text(active))
+
+    def _apply_label(self, text: str, active: dict[str, Any] | None) -> None:
+        raise NotImplementedError
+
+    def _apply_menu(self, menu: Any) -> None:
+        raise NotImplementedError
+
+    def _action(self, fn: Any) -> None:
+        fn()
+        self._refresh(force_menu=True)
+
+    def _on_tick(self) -> bool:
+        self._refresh(force_menu=False)
+        return True
+
+    def quit(self) -> None:
+        get_pid_file().unlink(missing_ok=True)
+        self.Gtk.main_quit()
+
+    def run(self) -> None:
+        self._refresh(force_menu=True)
+        self.GLib.timeout_add_seconds(1, self._on_tick)
+        self.Gtk.main()
+
+
+class TaskTimerAppIndicator(_BaseIndicatorController):
+    """Native AppIndicator3 mode (when the GNOME extension is active)."""
+
+    def __init__(self, gtk_mod: Any, glib_mod: Any, appind_mod: Any) -> None:
+        super().__init__(gtk_mod, glib_mod)
+        self.indicator = appind_mod.Indicator.new(
+            "tasktimer-indicator",
+            "alarm-symbolic",
+            appind_mod.IndicatorCategory.APPLICATION_STATUS,
+        )
+        self.indicator.set_status(appind_mod.IndicatorStatus.ACTIVE)
+        self.indicator.set_title("TaskTimer")
+
+    def _apply_label(self, text: str, active: dict[str, Any] | None) -> None:
+        self.indicator.set_label(f" {text}", "")
+
+    def _apply_menu(self, menu: Any) -> None:
+        self.indicator.set_menu(menu)
+
+
+class TaskTimerFloatingPill(_BaseIndicatorController):
+    """Always-on-top floating GTK3 pill (fallback when no GNOME tray extension is active)."""
+
+    def __init__(self, gtk_mod: Any, gdk_mod: Any, glib_mod: Any) -> None:
+        super().__init__(gtk_mod, glib_mod)
+        self.Gdk = gdk_mod
+        self._drag_origin: tuple[float, float] | None = None
+        self._win_origin: tuple[int, int] | None = None
+        self._was_dragged = False
+        self._positioned = False
+
+        self.window = gtk_mod.Window(type=gtk_mod.WindowType.TOPLEVEL)
+        self.window.set_title("TaskTimer")
+        self.window.set_decorated(False)
+        self.window.set_keep_above(True)
+        self.window.set_accept_focus(False)
+        self.window.set_skip_taskbar_hint(True)
+        self.window.set_skip_pager_hint(True)
+        self.window.set_resizable(False)
+        self.window.stick()
+        self.window.set_type_hint(gdk_mod.WindowTypeHint.UTILITY)
+
+        css = gtk_mod.CssProvider()
+        css.load_from_data(
+            b"""
+            window.tasktimer-pill {
+                background-color: #1e222a;
+                border: 1px solid #4c566a;
+                border-radius: 12px;
+            }
+            window.tasktimer-pill.overtime {
+                background-color: #4c1d24;
+                border-color: #bf616a;
+            }
+            label.tasktimer-text {
+                color: #eceff4;
+                font-weight: bold;
+                font-size: 13px;
+                padding: 5px 12px;
+            }
+            """
+        )
+        gtk_mod.StyleContext.add_provider_for_screen(
+            gdk_mod.Screen.get_default(),
+            css,
+            gtk_mod.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
+        self.window.get_style_context().add_class("tasktimer-pill")
+
+        self.event_box = gtk_mod.EventBox()
+        self.event_box.add_events(
+            gdk_mod.EventMask.BUTTON_PRESS_MASK
+            | gdk_mod.EventMask.BUTTON_RELEASE_MASK
+            | gdk_mod.EventMask.POINTER_MOTION_MASK
+        )
+        self.event_box.connect("button-press-event", self._on_button_press)
+        self.event_box.connect("motion-notify-event", self._on_motion)
+        self.event_box.connect("button-release-event", self._on_button_release)
+
+        self.label = gtk_mod.Label(label="⏱ TaskTimer")
+        self.label.get_style_context().add_class("tasktimer-text")
+        self.event_box.add(self.label)
+        self.window.add(self.event_box)
+        self.window.show_all()
+
+    def _position_top_right(self) -> None:
+        display = self.Gdk.Display.get_default()
+        if display is None:
+            return
+        monitor = display.get_primary_monitor() or display.get_monitor(0)
+        if monitor is None:
+            return
+        work = monitor.get_workarea()
+        width, _ = self.window.get_size()
+        x = max(work.x + 8, work.x + work.width - max(width, 160) - 16)
+        y = work.y + 4
+        self.window.move(x, y)
+        self._positioned = True
+
+    def _apply_label(self, text: str, active: dict[str, Any] | None) -> None:
+        self.label.set_text(text)
+        ctx = self.window.get_style_context()
+        if active is not None and active["status"] == "running" and remaining_seconds(active) < 0:
+            ctx.add_class("overtime")
+        else:
+            ctx.remove_class("overtime")
+        if not self._positioned:
+            self._position_top_right()
+
+    def _apply_menu(self, menu: Any) -> None:
+        self.menu = menu
+
+    def _on_button_press(self, _widget: Any, event: Any) -> bool:
+        if event.button == 1:
+            self._drag_origin = (event.x_root, event.y_root)
+            self._win_origin = self.window.get_position()
+            self._was_dragged = False
+            return True
+        if event.button == 3 and self.menu is not None:
+            self.menu.popup_at_pointer(event)
+            return True
+        return False
+
+    def _on_motion(self, _widget: Any, event: Any) -> bool:
+        if self._drag_origin is None or self._win_origin is None:
+            return False
+        dx = event.x_root - self._drag_origin[0]
+        dy = event.y_root - self._drag_origin[1]
+        if abs(dx) > 4 or abs(dy) > 4:
+            self._was_dragged = True
+            self.window.move(int(self._win_origin[0] + dx), int(self._win_origin[1] + dy))
+        return True
+
+    def _on_button_release(self, _widget: Any, event: Any) -> bool:
+        if event.button == 1:
+            was_dragged = self._was_dragged
+            self._drag_origin = None
+            self._win_origin = None
+            self._was_dragged = False
+            if not was_dragged and self.menu is not None:
+                self.menu.popup_at_pointer(event)
+            return True
+        return False
+
+
+def _create_controller() -> _BaseIndicatorController:
+    import gi
+
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gdk, GLib, Gtk
+
+    if _has_gnome_appindicator_extension():
+        try:
+            gi.require_version("AyatanaAppIndicator3", "0.1")
+            from gi.repository import AyatanaAppIndicator3
+
+            return TaskTimerAppIndicator(Gtk, GLib, AyatanaAppIndicator3)
+        except Exception:
+            pass
+
+    return TaskTimerFloatingPill(Gtk, Gdk, GLib)
+
+
+def main() -> int:
+    """Start the indicator process if it is not already running."""
+    if is_indicator_running():
+        return 0
+
+    pid_file = get_pid_file()
+    pid_file.parent.mkdir(parents=True, exist_ok=True)
+    pid_file.write_text(str(os.getpid()), encoding="utf-8")
+
+    app = _create_controller()
+    signal.signal(signal.SIGTERM, lambda _s, _f: app.quit())
+    signal.signal(signal.SIGINT, lambda _s, _f: app.quit())
+    try:
+        app.run()
+    finally:
+        pid_file.unlink(missing_ok=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
