@@ -27,6 +27,13 @@ echo "  - Removed ~/.local/bin/tasktimer and ~/.local/bin/tt"
 rm -f "$HOME/.config/fish/conf.d/tasktimer.fish" "$MARKER_FILE"
 echo "  - Removed ~/.config/fish/conf.d/tasktimer.fish"
 
+# 2b. Remove GNOME Shell extension
+if command -v gnome-extensions >/dev/null 2>&1; then
+    gnome-extensions disable tasktimer@creatico6 2>/dev/null || true
+fi
+rm -rf "$HOME/.local/share/gnome-shell/extensions/tasktimer@creatico6"
+echo "  - Removed GNOME Shell extension (tasktimer@creatico6)"
+
 # 3. Optional: remove saved tasks
 if [ -d "$DATA_DIR" ]; then
     read -r -p "Remove saved task data in $DATA_DIR? [y/N] " ans_data

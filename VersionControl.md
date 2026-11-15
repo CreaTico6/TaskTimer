@@ -4,6 +4,19 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.7.0] — 2026-11-15
+
+### Added
+- `tasktimer/indicator.py`: Added a `"✕"` close button to the always-on-top `TaskTimerFloatingPill` header bar.
+- `tasktimer/cli.py`: Added `tt indicator toggle` action.
+- `gnome-extension/tasktimer@creatico6/`: Added a userspace GNOME Shell extension (GNOME 42–44) placing a permanent `⏱` button in the GNOME top bar to toggle the floating TaskTimer widget.
+- `Makefile`, `uninstall.sh`, `README.md`: Integrated `make gnome-ext` installation and uninstallation.
+
+## [0.6.2] — 2026-11-15
+
+### Added
+- `tasktimer/indicator.py`: Added a top header bar with `"⏱ TiSoft TaskTimer"` and a `"✕"` close button to `TaskTimerCardPopup` to dismiss the popup card.
+
 ## [0.6.1] — 2026-11-15
 
 ### Fixed

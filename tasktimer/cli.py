@@ -189,7 +189,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_rm.add_argument("id", type=int, help="Task ID.")
 
     p_ind = sub.add_parser("indicator", help="Manage the top-bar indicator.")
-    p_ind.add_argument("action", choices=["start", "stop", "status"], help="Indicator action.")
+    p_ind.add_argument("action", choices=["start", "stop", "status", "toggle"], help="Indicator action.")
 
     p_hist = sub.add_parser("history", help="Show permanent task history.")
     p_hist.add_argument("-n", "--limit", type=int, default=20, help="Maximum entries to show.")
@@ -247,6 +247,17 @@ def main(argv: list[str] | None = None) -> int:
                     return 1
             elif args.action == "stop":
                 print("Indicator stopped." if stop_indicator() else "Indicator was not running.")
+            elif args.action == "toggle":
+                if is_indicator_running():
+                    stop_indicator()
+                    print("Indicator stopped.")
+                else:
+                    started, pid = start_indicator_background()
+                    if started or pid:
+                        print(f"Indicator started (PID {pid}).")
+                    else:
+                        print("No graphical session (DISPLAY/WAYLAND_DISPLAY).")
+                        return 1
             elif args.action == "status":
                 pid = read_indicator_pid()
                 print(f"Indicator ACTIVE (PID {pid})." if pid else "Indicator INACTIVE.")

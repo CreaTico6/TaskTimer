@@ -2,17 +2,19 @@
 
 BIN_DIR := $(HOME)/.local/bin
 FISH_CONF_DIR := $(HOME)/.config/fish/conf.d
+GNOME_EXT_DIR := $(HOME)/.local/share/gnome-shell/extensions/tasktimer@creatico6
 ROOT_DIR := $(CURDIR)
 
-.PHONY: install deps fish test uninstall help
+.PHONY: install deps fish gnome-ext test uninstall help
 
 help:
 	@printf '%s\n' \
 		'TaskTimer Makefile targets:' \
-		'  make            Install dependencies if missing, symlinks, and Fish hook (default)' \
+		'  make            Install deps, symlinks, Fish hook, and GNOME extension (default)' \
 		'  make install    Same as make' \
 		'  make deps       Check GTK3 bindings and install PyGObject in userspace if missing' \
 		'  make fish       Install only the Fish startup hook' \
+		'  make gnome-ext  Install the GNOME Shell top-bar toggle extension' \
 		'  make test       Run the unit test suite' \
 		'  make uninstall  Run the interactive uninstaller' \
 		'  make help       Show this help message'
@@ -35,7 +37,19 @@ install: deps
 	@if command -v fish >/dev/null 2>&1; then \
 		$(MAKE) --no-print-directory fish; \
 	fi
+	@if command -v gnome-shell >/dev/null 2>&1; then \
+		$(MAKE) --no-print-directory gnome-ext; \
+	fi
 	@echo "Done. Ensure $(BIN_DIR) is in your PATH, then run: tt --startup"
+
+gnome-ext:
+	@mkdir -p "$(dir $(GNOME_EXT_DIR))"
+	@ln -sfn "$(ROOT_DIR)/gnome-extension/tasktimer@creatico6" "$(GNOME_EXT_DIR)"
+	@if command -v gnome-extensions >/dev/null 2>&1; then \
+		gnome-extensions enable tasktimer@creatico6 2>/dev/null || true; \
+	fi
+	@echo "Installed GNOME Shell extension in $(GNOME_EXT_DIR)"
+	@echo "Note: Reload GNOME Shell (Alt+F2 -> r on X11, or re-login) to activate the top-bar button."
 
 fish:
 	@mkdir -p "$(FISH_CONF_DIR)"

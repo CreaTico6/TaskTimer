@@ -442,6 +442,15 @@ class TaskTimerCardPopup:
         self._time_label = None
         self._progress_bar = None
 
+        top_bar = self.Gtk.Box(orientation=self.Gtk.Orientation.HORIZONTAL, spacing=6)
+        brand_lbl = self.Gtk.Label(label="⏱ TiSoft TaskTimer")
+        brand_lbl.get_style_context().add_class("tasktimer-section-title")
+        brand_lbl.set_xalign(0.0)
+        close_btn = self._make_button("✕", "tasktimer-close-btn", self.hide)
+        top_bar.pack_start(brand_lbl, True, True, 0)
+        top_bar.pack_end(close_btn, False, False, 0)
+        self.root_box.pack_start(top_bar, False, False, 0)
+
         if self._mode == "new":
             self._rebuild_new_task_form()
         elif self._mode == "history":
@@ -848,6 +857,19 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
                 background-color: #2e3440;
                 color: #eceff4;
             }
+            button.tasktimer-close-btn {
+                background-color: transparent;
+                color: #9aa5b1;
+                border: none;
+                border-radius: 6px;
+                padding: 1px 6px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            button.tasktimer-close-btn:hover {
+                background-color: #3b4252;
+                color: #eceff4;
+            }
             button.tasktimer-del-btn {
                 background-color: #2e3440;
                 color: #bf616a;
@@ -898,10 +920,17 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
         self.event_box.connect("button-release-event", self._on_button_release)
 
         box = gtk_mod.Box(orientation=gtk_mod.Orientation.VERTICAL, spacing=2)
+        header_row = gtk_mod.Box(orientation=gtk_mod.Orientation.HORIZONTAL, spacing=6)
         self.brand_label = gtk_mod.Label(label="⏱ TiSoft TaskTimer")
         self.brand_label.get_style_context().add_class("tasktimer-brand")
         self.brand_label.set_xalign(0.0)
-        box.pack_start(self.brand_label, False, False, 0)
+        pill_close_btn = gtk_mod.Button(label="✕")
+        pill_close_btn.get_style_context().add_class("tasktimer-close-btn")
+        pill_close_btn.set_relief(gtk_mod.ReliefStyle.NONE)
+        pill_close_btn.connect("clicked", lambda _b: self.quit())
+        header_row.pack_start(self.brand_label, True, True, 0)
+        header_row.pack_end(pill_close_btn, False, False, 4)
+        box.pack_start(header_row, False, False, 0)
 
         self.tasks_box = gtk_mod.Box(orientation=gtk_mod.Orientation.VERTICAL, spacing=2)
         self._task_labels: list[Any] = []

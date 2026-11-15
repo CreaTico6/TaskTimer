@@ -28,8 +28,9 @@ A lightweight terminal task manager with a **native GNOME top-bar / floating tim
    ```
 
 3. **Available `make` targets:**
-   - `make` / `make install` — Install symlinks and Fish startup hook
+   - `make` / `make install` — Install deps, symlinks, Fish hook, and GNOME top-bar extension
    - `make fish` — Install only the Fish startup hook
+   - `make gnome-ext` — Install the GNOME Shell top-bar `⏱` toggle extension (reload GNOME Shell once via `Alt+F2` → `r` on X11, or re-login)
    - `make test` — Run the unit test suite
    - `make uninstall` — Run the interactive uninstaller
    - `make help` — Show available targets

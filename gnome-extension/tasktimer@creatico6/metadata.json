@@ -1,0 +1,7 @@
+{
+  "uuid": "tasktimer@creatico6",
+  "name": "TiSoft TaskTimer",
+  "description": "Top-bar button to toggle the TiSoft TaskTimer floating widget.",
+  "shell-version": ["42", "43", "44"],
+  "version": 1
+}
