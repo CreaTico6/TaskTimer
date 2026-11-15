@@ -5,19 +5,36 @@ FISH_CONF_DIR := $(HOME)/.config/fish/conf.d
 GNOME_EXT_DIR := $(HOME)/.local/share/gnome-shell/extensions/tasktimer@creatico6
 ROOT_DIR := $(CURDIR)
 
-.PHONY: install deps fish gnome-ext test uninstall help
+.PHONY: install check-x11 deps fish gnome-ext test uninstall help
 
 help:
 	@printf '%s\n' \
 		'TaskTimer Makefile targets:' \
 		'  make            Install deps, symlinks, Fish hook, and GNOME extension (default)' \
 		'  make install    Same as make' \
+		'  make check-x11  Verify X11 session (warns and prompts if not X11)' \
 		'  make deps       Check GTK3 bindings and install PyGObject in userspace if missing' \
 		'  make fish       Install only the Fish startup hook' \
 		'  make gnome-ext  Install the GNOME Shell top-bar toggle extension' \
 		'  make test       Run the unit test suite' \
 		'  make uninstall  Run the interactive uninstaller' \
 		'  make help       Show this help message'
+
+check-x11:
+	@session="$${XDG_SESSION_TYPE:-}"; \
+	if [ "$$session" != "x11" ]; then \
+		echo ""; \
+		echo "⚠  Warning: TaskTimer was built for X11 (detected session: '$${session:-unknown}')."; \
+		echo "   The floating widget and popup may not position or behave properly outside X11."; \
+		if [ -t 0 ]; then \
+			printf "Continue installation anyway? [y/N] "; \
+			read -r ans; \
+			case "$$ans" in \
+				[yY]|[yY][eE][sS]) ;; \
+				*) echo "Installation cancelled."; exit 1 ;; \
+			esac; \
+		fi; \
+	fi
 
 deps:
 	@if python3 -c "import gi; gi.require_version('Gtk','3.0'); gi.require_version('Gdk','3.0'); from gi.repository import Gtk, Gdk" 2>/dev/null || \
@@ -28,7 +45,7 @@ deps:
 		python3 -m pip install --user PyGObject; \
 	fi
 
-install: deps
+install: check-x11 deps
 	@chmod +x "$(ROOT_DIR)/bin/tasktimer" "$(ROOT_DIR)/uninstall.sh"
 	@mkdir -p "$(BIN_DIR)"
 	@ln -sf "$(ROOT_DIR)/bin/tasktimer" "$(BIN_DIR)/tasktimer"

@@ -13,7 +13,7 @@ A lightweight terminal task manager with a **native GNOME top-bar / floating tim
 
 ## Installation (Userspace Only — No `sudo`, No `pip`)
 
-**Requirements:** Python `3.10+` with system GTK3 bindings (`python3-gi` / `Gtk 3.0` + `Gdk 3.0`), `make`, plus `notify-send` (optional, for desktop alerts).
+**Requirements:** Ubuntu / Linux with **X11** (non-X11 sessions show a warning prompt during `make`), Python `3.10+` with system GTK3 bindings (`python3-gi` / `Gtk 3.0` + `Gdk 3.0`), `make`, plus `notify-send` (optional, for desktop alerts).
 
 1. **Clone and install immediately with `make`:**
    ```bash

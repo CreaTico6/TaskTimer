@@ -4,6 +4,12 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.8.1] — 2026-11-15
+
+### Added
+- `Makefile`: Added `check-x11` target (runs before `install`) to warn and prompt `[y/N]` when `XDG_SESSION_TYPE` is not `x11`, while still allowing the user to proceed.
+- Updated `tasktimer/__init__.py`, `README.md`, and `VersionControl.md`.
+
 ## [0.8.0] — 2026-11-15
 
 ### Added
