@@ -1,7 +1,7 @@
 # TaskTimer — Coder Manual
 
 **Author:** `creatico6@github.com`  
-**Version:** `0.2.2`  
+**Version:** `0.2.4`  
 **Target Environment:** Unprivileged Linux Workstations (Ubuntu 22.04 LTS, GNOME Shell on X11, Fish shell, no `sudo`, no `pip` required)
 
 ---
@@ -14,7 +14,7 @@
 - **Terminal CLI (`tasktimer` / `tt`)**: Interactive menu and direct subcommands (`add`, `list`, `start`, `pause`, `done`, `addtime`, `rm`, `indicator`) backed by atomic JSON persistence (`~/.local/share/tasktimer/tasks.json`).
 - **Desktop Top-Bar Widget (`tasktimer/indicator.py`)**: Uses `AyatanaAppIndicator3` when GNOME's AppIndicator extension is active, and automatically falls back to an always-on-top, draggable GTK3 floating pill (`TaskTimerFloatingPill`) on restricted GNOME sessions where `ubuntu-appindicators@ubuntu.com` is not installed.
 - **Reproduce in 4 steps**:
-  1. Clone/copy the `TaskTimer/` directory into your workspace (e.g., `~/Oficina/TaskTimer`).
+  1. Clone/copy the `TaskTimer/` directory into `~/Projects/TaskTimer`.
   2. Symlink `bin/tasktimer` to `~/.local/bin/tasktimer` and `~/.local/bin/tt`.
   3. Copy the Fish startup hook to `~/.config/fish/conf.d/tasktimer.fish`.
   4. Run `python3 -m unittest discover -s tests -v` and launch `tt --startup`.
@@ -52,6 +52,7 @@ TaskTimer/
 ├── CoderManual.md             # This manual
 ├── LICENSE                    # MIT License
 ├── README.md                  # Quick-start user guide
+├── uninstall.sh               # Interactive userspace uninstaller
 └── VersionControl.md          # Changelog & version history
 ```
 
@@ -154,14 +155,14 @@ Why `conf.d/tasktimer.fish`?
 
 ```bash
 # 1. Ensure executable permissions and userspace symlinks
-chmod +x /home/tnuno-mo/Oficina/TaskTimer/bin/tasktimer
+chmod +x ~/Projects/TaskTimer/bin/tasktimer
 mkdir -p ~/.local/bin ~/.config/fish/conf.d
-ln -sf /home/tnuno-mo/Oficina/TaskTimer/bin/tasktimer ~/.local/bin/tasktimer
-ln -sf /home/tnuno-mo/Oficina/TaskTimer/bin/tasktimer ~/.local/bin/tt
+ln -sf ~/Projects/TaskTimer/bin/tasktimer ~/.local/bin/tasktimer
+ln -sf ~/Projects/TaskTimer/bin/tasktimer ~/.local/bin/tt
 
 # 2. Verify Fish syntax and run unit tests
 fish -n ~/.config/fish/conf.d/tasktimer.fish
-python3 -m unittest discover -s /home/tnuno-mo/Oficina/TaskTimer/tests -v
+python3 -m unittest discover -s ~/Projects/TaskTimer/tests -v
 
 # 3. Launch TaskTimer and top-bar indicator
 tt --startup

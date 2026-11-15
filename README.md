@@ -13,7 +13,7 @@ A lightweight terminal task manager with a **native GNOME top-bar / floating tim
 
 ## Userspace Installation (No `sudo`)
 
-- Symlinks: `~/.local/bin/tasktimer` and `~/.local/bin/tt` → `/home/tnuno-mo/Oficina/TaskTimer/bin/tasktimer`
+- Symlinks: `~/.local/bin/tasktimer` and `~/.local/bin/tt` → `~/Projects/TaskTimer/bin/tasktimer`
 - Fish hook: `~/.config/fish/conf.d/tasktimer.fish`
 - Data file: `~/.local/share/tasktimer/tasks.json`
 
@@ -37,11 +37,12 @@ tt done 1
 tt indicator status   # start | stop | status
 ```
 
-## Documentation & Tests
+## Documentation, Uninstall & Tests
 
 - See [CoderManual.md](CoderManual.md) for the full technical manual, architecture, and reproduction guide.
 - See [VersionControl.md](VersionControl.md) for the changelog and [LICENSE](LICENSE) for the MIT License.
+- To uninstall, run `~/Projects/TaskTimer/uninstall.sh`.
 
 ```fish
-python3 -m unittest discover -s /home/tnuno-mo/Oficina/TaskTimer/tests -v
+python3 -m unittest discover -s ~/Projects/TaskTimer/tests -v
 ```

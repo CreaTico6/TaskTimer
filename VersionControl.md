@@ -4,6 +4,17 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.2.4] — 2026-11-15
+
+### Added
+- `uninstall.sh`: interactive userspace uninstaller that stops the indicator, removes symlinks and the Fish hook, and optionally deletes saved task data and the repository directory.
+- Updated `README.md`, `CoderManual.md`, and `VersionControl.md`.
+
+## [0.2.3] — 2026-11-15
+
+### Changed
+- Relocated installation path from `~/Oficina/TaskTimer` to `~/Projects/TaskTimer` and updated `README.md` and `CoderManual.md` accordingly.
+
 ## [0.2.2] — 2026-11-15
 
 ### Added / Changed
