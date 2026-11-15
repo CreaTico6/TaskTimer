@@ -159,9 +159,24 @@ class _BaseIndicatorController:
                 f"Task '{active['title']}' reached its time limit. Counting overtime.",
             )
 
-    def _add_item(self, menu: Any, label: str, callback: Any = None, sensitive: bool = True) -> Any:
+    def _set_bold_item_text(self, item: Any, text: str) -> None:
+        child = item.get_child()
+        if child is not None:
+            child.get_style_context().add_class("tasktimer-menu-header")
+            child.set_markup(f"<b>{self.GLib.markup_escape_text(text)}</b>")
+
+    def _add_item(
+        self,
+        menu: Any,
+        label: str,
+        callback: Any = None,
+        sensitive: bool = True,
+        bold: bool = False,
+    ) -> Any:
         item = self.Gtk.MenuItem(label=label)
         item.set_sensitive(sensitive)
+        if bold:
+            self._set_bold_item_text(item, label)
         if callback is not None:
             item.connect("activate", callback)
         menu.append(item)
@@ -169,7 +184,9 @@ class _BaseIndicatorController:
 
     def _rebuild_menu(self, tasks: list[dict[str, Any]], active: dict[str, Any] | None) -> Any:
         menu = self.Gtk.Menu()
-        self._header_item = self._add_item(menu, self._format_header_text(active), sensitive=False)
+        self._header_item = self._add_item(
+            menu, self._format_header_text(active), sensitive=False, bold=True
+        )
         menu.append(self.Gtk.SeparatorMenuItem())
 
         if active is not None:
@@ -185,7 +202,7 @@ class _BaseIndicatorController:
 
         other_tasks = [t for t in tasks if active is None or int(t["id"]) != int(active["id"])]
         if other_tasks:
-            self._add_item(menu, "Switch / Start task:", sensitive=False)
+            self._add_item(menu, "Switch / Start task:", sensitive=False, bold=True)
             for task in other_tasks[:10]:
                 rem = format_duration(remaining_seconds(task), show_sign=True)
                 label = f"  ▶ #{task['id']} {_truncate(task['title'], 28)} ({rem})"
@@ -214,7 +231,7 @@ class _BaseIndicatorController:
             menu = self._rebuild_menu(tasks, active)
             self._apply_menu(menu)
         elif self._header_item is not None:
-            self._header_item.set_label(self._format_header_text(active))
+            self._set_bold_item_text(self._header_item, self._format_header_text(active))
 
     def _apply_label(self, text: str, active: dict[str, Any] | None, tasks: list[dict[str, Any]]) -> None:
         raise NotImplementedError
@@ -305,6 +322,11 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
                 font-weight: bold;
                 font-size: 13px;
                 padding: 0px 12px 5px 12px;
+            }
+            label.tasktimer-menu-header {
+                font-weight: bold;
+                opacity: 1.0;
+                color: @theme_fg_color;
             }
             """
         )

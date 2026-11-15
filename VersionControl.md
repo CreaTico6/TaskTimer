@@ -4,6 +4,11 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.3.2] — 2026-11-15
+
+### Changed
+- `tasktimer/indicator.py`: Styled the active task header and `"Switch / Start task:"` menu headers in bold with full contrast (no longer dimmed by GTK's disabled menu item styling).
+
 ## [0.3.1] — 2026-11-15
 
 ### Changed
