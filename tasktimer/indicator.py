@@ -172,9 +172,12 @@ class _BaseIndicatorController:
         callback: Any = None,
         sensitive: bool = True,
         bold: bool = False,
+        section: bool = False,
     ) -> Any:
         item = self.Gtk.MenuItem(label=label)
         item.set_sensitive(sensitive)
+        if section:
+            item.get_style_context().add_class("tasktimer-menu-section")
         if bold:
             self._set_bold_item_text(item, label)
         if callback is not None:
@@ -185,24 +188,27 @@ class _BaseIndicatorController:
     def _rebuild_menu(self, tasks: list[dict[str, Any]], active: dict[str, Any] | None) -> Any:
         menu = self.Gtk.Menu()
         self._header_item = self._add_item(
-            menu, self._format_header_text(active), sensitive=False, bold=True
+            menu, self._format_header_text(active), sensitive=False, bold=True, section=True
         )
         menu.append(self.Gtk.SeparatorMenuItem())
 
         if active is not None:
             toggle_label = "⏸ Pause" if active["status"] == "running" else "▶ Resume"
-            self._add_item(menu, toggle_label, lambda _w: self._action(self.store.toggle_active))
-            self._add_item(menu, "✔ Complete current task", lambda _w: self._action(self.store.complete_task))
+            self._add_item(menu, toggle_label, lambda _w: self._action(self.store.toggle_active), section=True)
+            self._add_item(
+                menu, "✔ Complete current task", lambda _w: self._action(self.store.complete_task), section=True
+            )
             self._add_item(
                 menu,
                 "➕ Add +5 min",
                 lambda _w, tid=int(active["id"]): self._action(lambda: self.store.add_time(tid, 300)),
+                section=True,
             )
             menu.append(self.Gtk.SeparatorMenuItem())
 
         other_tasks = [t for t in tasks if active is None or int(t["id"]) != int(active["id"])]
         if other_tasks:
-            self._add_item(menu, "Switch / Start task:", sensitive=False, bold=True)
+            self._add_item(menu, "Switch / Start task:", sensitive=False, bold=True, section=False)
             for task in other_tasks[:10]:
                 rem = format_duration(remaining_seconds(task), show_sign=True)
                 label = f"  ▶ #{task['id']} {_truncate(task['title'], 28)} ({rem})"
@@ -322,6 +328,14 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
                 font-weight: bold;
                 font-size: 13px;
                 padding: 0px 12px 5px 12px;
+            }
+            menuitem.tasktimer-menu-section {
+                background-color: rgba(136, 192, 208, 0.14);
+                border-left: 3px solid #88c0d0;
+                padding: 4px 8px;
+            }
+            menuitem.tasktimer-menu-section:hover {
+                background-color: rgba(136, 192, 208, 0.30);
             }
             label.tasktimer-menu-header {
                 font-weight: bold;

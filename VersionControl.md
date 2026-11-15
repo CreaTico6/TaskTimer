@@ -4,6 +4,21 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.3.5] — 2026-11-15
+
+### Changed
+- `tasktimer/indicator.py`: Grouped all 4 active-task menu rows (header, Pause/Resume, Complete, Add +5 min) under `tasktimer-menu-section` (blue tint + left accent + hover highlight) and removed the blue background from `"Switch / Start task:"`.
+
+## [0.3.4] — 2026-11-15
+
+### Changed
+- `tasktimer/indicator.py`: Removed the blue left accent border from the `"Switch / Start task:"` menu subheader (`tasktimer-menu-subheader`) while keeping it on the active task header (`tasktimer-menu-section`).
+
+## [0.3.3] — 2026-11-15
+
+### Changed
+- `tasktimer/indicator.py`: Added a subtle tinted background and left accent border (`menuitem.tasktimer-menu-section`) to non-clickable menu headers so they are visually distinct from clickable actions.
+
 ## [0.3.2] — 2026-11-15
 
 ### Changed
