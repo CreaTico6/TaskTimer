@@ -158,6 +158,8 @@ class TaskStore:
             raise ValueError("Allocated time must be greater than zero.")
 
         data = self._load_raw()
+        if not data["tasks"]:
+            data["next_id"] = 1
         task_id = int(data["next_id"])
         data["next_id"] = task_id + 1
         task = {
@@ -256,9 +258,11 @@ class TaskStore:
             self._save_raw(data)
 
     def remove_task(self, task_id: int) -> dict[str, Any]:
-        """Remove a task by ID."""
+        """Remove a task by ID and reset next_id when no tasks remain."""
         data = self._load_raw()
         target = self._find_task(data, task_id)
         data["tasks"] = [t for t in data["tasks"] if int(t["id"]) != int(task_id)]
+        if not data["tasks"]:
+            data["next_id"] = 1
         self._save_raw(data)
         return target

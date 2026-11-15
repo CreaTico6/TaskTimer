@@ -4,6 +4,12 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.2.7] — 2026-11-15
+
+### Changed
+- `tasktimer/storage.py`: Reset `next_id` back to `1` whenever no tasks remain in `tasks.json`.
+- `tests/test_storage.py`: Added `test_next_id_resets_when_all_tasks_removed`.
+
 ## [0.2.6] — 2026-11-15
 
 ### Changed

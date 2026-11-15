@@ -82,6 +82,15 @@ class TaskStoreTests(unittest.TestCase):
         self.assertEqual(remaining_seconds(task, now=1005.0), 5)
         self.assertEqual(remaining_seconds(task, now=1020.0), -10)
 
+    def test_next_id_resets_when_all_tasks_removed(self) -> None:
+        t1 = self.store.add_task("First", 60)
+        t2 = self.store.add_task("Second", 60)
+        self.assertEqual((t1["id"], t2["id"]), (1, 2))
+        self.store.remove_task(1)
+        self.store.remove_task(2)
+        t3 = self.store.add_task("Fresh", 60)
+        self.assertEqual(t3["id"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
