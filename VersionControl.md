@@ -4,6 +4,16 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.2.6] — 2026-11-15
+
+### Changed
+- `tasktimer/indicator.py`: `TaskTimerFloatingPill` now expands dynamically to display up to 3 active/open tasks (capping height at 3 tasks even when more exist) and shrinks back when tasks are completed or removed.
+
+## [0.2.5] — 2026-11-15
+
+### Changed
+- `tasktimer/indicator.py`: Updated `TaskTimerFloatingPill` to a two-line layout showing `⏱ TiSoft TaskTimer` on the top line and the active task/timer (or `No active task`) on the second line.
+
 ## [0.2.4] — 2026-11-15
 
 ### Added

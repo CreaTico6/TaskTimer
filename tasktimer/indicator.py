@@ -130,7 +130,7 @@ class _BaseIndicatorController:
 
     def _format_top_label(self, active: dict[str, Any] | None) -> str:
         if active is None:
-            return "⏱ TaskTimer"
+            return "⏱ TiSoft TaskTimer"
         rem = remaining_seconds(active)
         title = _truncate(active["title"], 22)
         if active["status"] == "running":
@@ -207,7 +207,7 @@ class _BaseIndicatorController:
         active = self.store.get_active_task()
         self._check_overtime_notification(active)
 
-        self._apply_label(self._format_top_label(active), active)
+        self._apply_label(self._format_top_label(active), active, tasks)
         signature = tuple((t["id"], t["status"], t["title"], t["allocated_seconds"]) for t in tasks)
         if force_menu or signature != self._menu_signature:
             self._menu_signature = signature
@@ -216,7 +216,7 @@ class _BaseIndicatorController:
         elif self._header_item is not None:
             self._header_item.set_label(self._format_header_text(active))
 
-    def _apply_label(self, text: str, active: dict[str, Any] | None) -> None:
+    def _apply_label(self, text: str, active: dict[str, Any] | None, tasks: list[dict[str, Any]]) -> None:
         raise NotImplementedError
 
     def _apply_menu(self, menu: Any) -> None:
@@ -253,7 +253,7 @@ class TaskTimerAppIndicator(_BaseIndicatorController):
         self.indicator.set_status(appind_mod.IndicatorStatus.ACTIVE)
         self.indicator.set_title("TaskTimer")
 
-    def _apply_label(self, text: str, active: dict[str, Any] | None) -> None:
+    def _apply_label(self, text: str, active: dict[str, Any] | None, tasks: list[dict[str, Any]]) -> None:
         self.indicator.set_label(f" {text}", "")
 
     def _apply_menu(self, menu: Any) -> None:
@@ -272,7 +272,7 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
         self._positioned = False
 
         self.window = gtk_mod.Window(type=gtk_mod.WindowType.TOPLEVEL)
-        self.window.set_title("TaskTimer")
+        self.window.set_title("TiSoft TaskTimer")
         self.window.set_decorated(False)
         self.window.set_keep_above(True)
         self.window.set_accept_focus(False)
@@ -294,11 +294,17 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
                 background-color: #4c1d24;
                 border-color: #bf616a;
             }
+            label.tasktimer-brand {
+                color: #88c0d0;
+                font-weight: bold;
+                font-size: 10px;
+                padding: 4px 12px 0px 12px;
+            }
             label.tasktimer-text {
                 color: #eceff4;
                 font-weight: bold;
                 font-size: 13px;
-                padding: 5px 12px;
+                padding: 0px 12px 5px 12px;
             }
             """
         )
@@ -319,11 +325,47 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
         self.event_box.connect("motion-notify-event", self._on_motion)
         self.event_box.connect("button-release-event", self._on_button_release)
 
-        self.label = gtk_mod.Label(label="⏱ TaskTimer")
-        self.label.get_style_context().add_class("tasktimer-text")
-        self.event_box.add(self.label)
+        box = gtk_mod.Box(orientation=gtk_mod.Orientation.VERTICAL, spacing=2)
+        self.brand_label = gtk_mod.Label(label="⏱ TiSoft TaskTimer")
+        self.brand_label.get_style_context().add_class("tasktimer-brand")
+        self.brand_label.set_xalign(0.0)
+        box.pack_start(self.brand_label, False, False, 0)
+
+        self.tasks_box = gtk_mod.Box(orientation=gtk_mod.Orientation.VERTICAL, spacing=2)
+        self._task_labels: list[Any] = []
+        box.pack_start(self.tasks_box, False, False, 0)
+
+        self.event_box.add(box)
         self.window.add(self.event_box)
         self.window.show_all()
+
+    @staticmethod
+    def _format_task_line(task: dict[str, Any]) -> str:
+        rem = remaining_seconds(task)
+        title = _truncate(task["title"], 22)
+        status = task["status"]
+        if status == "running":
+            icon = "⚠" if rem < 0 else "▶"
+        elif status == "paused":
+            icon = "⏸"
+        else:
+            icon = "•"
+        return f"{icon} {title} ({format_duration(rem, show_sign=True)})"
+
+    def _sync_task_label_count(self, count: int) -> None:
+        if len(self._task_labels) == count:
+            return
+        for child in self._task_labels:
+            self.tasks_box.remove(child)
+        self._task_labels = []
+        for _ in range(count):
+            lbl = self.Gtk.Label()
+            lbl.get_style_context().add_class("tasktimer-text")
+            lbl.set_xalign(0.0)
+            self.tasks_box.pack_start(lbl, False, False, 0)
+            self._task_labels.append(lbl)
+        self.tasks_box.show_all()
+        self.window.resize(1, 1)
 
     def _position_top_right(self) -> None:
         display = self.Gdk.Display.get_default()
@@ -339,8 +381,13 @@ class TaskTimerFloatingPill(_BaseIndicatorController):
         self.window.move(x, y)
         self._positioned = True
 
-    def _apply_label(self, text: str, active: dict[str, Any] | None) -> None:
-        self.label.set_text(text)
+    def _apply_label(self, text: str, active: dict[str, Any] | None, tasks: list[dict[str, Any]]) -> None:
+        visible_tasks = tasks[:3]
+        lines = [self._format_task_line(t) for t in visible_tasks] if visible_tasks else ["No active task"]
+        self._sync_task_label_count(len(lines))
+        for lbl, line in zip(self._task_labels, lines):
+            lbl.set_text(line)
+
         ctx = self.window.get_style_context()
         if active is not None and active["status"] == "running" and remaining_seconds(active) < 0:
             ctx.add_class("overtime")
