@@ -45,6 +45,22 @@ def _print_tasks(tasks: list[dict[str, Any]]) -> None:
     print()
 
 
+def _print_history(entries: list[dict[str, Any]]) -> None:
+    print("\n=== TaskTimer | Permanent History ===")
+    if not entries:
+        print("  (No history recorded yet.)\n")
+        return
+    print(f"  {'Date':<17} {'Event':<10} {'Elapsed':<9} {'Allocated':<9} {'Title / Description'}")
+    print("  " + "-" * 74)
+    for item in entries:
+        date_str = str(item.get("recorded_at", ""))[:16].replace("T", " ")
+        elapsed = format_duration(int(item.get("elapsed_seconds", 0)))
+        alloc = format_duration(int(item.get("allocated_seconds", 0)))
+        desc = f" — {item['description']}" if item.get("description") else ""
+        print(f"  {date_str:<17} {item['event']:<10} {elapsed:<9} {alloc:<9} {item['title']}{desc}")
+    print()
+
+
 def _prompt_int(label: str) -> int | None:
     raw = input(label).strip()
     if not raw:
@@ -80,7 +96,7 @@ def _interactive_loop(store: TaskStore, startup: bool = False) -> int:
         _print_tasks(store.list_tasks(include_done=True))
         print(
             "[1] New task      [2] Start/Switch     [3] Pause/Resume     [4] Complete\n"
-            "[5] +Time         [6] Remove           [7] Indicator (on/off) [0] Exit"
+            "[5] +Time         [6] Remove           [7] Indicator (on/off) [8] History   [0] Exit"
         )
         try:
             choice = input("\nOption: ").strip()
@@ -132,6 +148,8 @@ def _interactive_loop(store: TaskStore, startup: bool = False) -> int:
                         print(f"Indicator active (PID {pid}).")
                     else:
                         print("Could not start indicator (no DISPLAY/WAYLAND_DISPLAY).")
+            elif choice == "8":
+                _print_history(store.list_history(limit=20))
             else:
                 print("Invalid option.")
         except (ValueError, KeyError) as exc:
@@ -171,6 +189,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_ind = sub.add_parser("indicator", help="Manage the top-bar indicator.")
     p_ind.add_argument("action", choices=["start", "stop", "status"], help="Indicator action.")
+
+    p_hist = sub.add_parser("history", help="Show permanent task history.")
+    p_hist.add_argument("-n", "--limit", type=int, default=20, help="Maximum entries to show.")
 
     return parser
 
@@ -228,6 +249,8 @@ def main(argv: list[str] | None = None) -> int:
             elif args.action == "status":
                 pid = read_indicator_pid()
                 print(f"Indicator ACTIVE (PID {pid})." if pid else "Indicator INACTIVE.")
+        elif args.command == "history":
+            _print_history(store.list_history(limit=args.limit))
     except (ValueError, KeyError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

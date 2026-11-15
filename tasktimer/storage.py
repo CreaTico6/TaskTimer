@@ -88,10 +88,40 @@ def remaining_seconds(task: dict[str, Any], now: float | None = None) -> int:
 
 
 class TaskStore:
-    """Manage tasks with atomic JSON reads and writes."""
+    """Manage active tasks with atomic JSON writes and an append-only history log."""
 
     def __init__(self, path: Path | None = None) -> None:
         self.path = path or (get_data_dir() / "tasks.json")
+        self.history_path = self.path.parent / "history.jsonl"
+
+    def _append_history(self, task: dict[str, Any], event: str) -> None:
+        self.history_path.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "event": event,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            "id": task["id"],
+            "title": task["title"],
+            "description": task.get("description", ""),
+            "allocated_seconds": task["allocated_seconds"],
+            "elapsed_seconds": task["elapsed_seconds"],
+            "created_at": task.get("created_at"),
+            "completed_at": task.get("completed_at"),
+        }
+        with self.history_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+    def list_history(self, limit: int | None = 20) -> list[dict[str, Any]]:
+        """Return permanent history entries, most recent first."""
+        if not self.history_path.exists():
+            return []
+        entries: list[dict[str, Any]] = []
+        with self.history_path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if line:
+                    entries.append(json.loads(line))
+        entries.reverse()
+        return entries[:limit] if limit is not None else entries
 
     def _load_raw(self) -> dict[str, Any]:
         if not self.path.exists():
@@ -219,7 +249,7 @@ class TaskStore:
         return None
 
     def complete_task(self, task_id: int | None = None) -> dict[str, Any]:
-        """Mark a task (or the current active task) as done."""
+        """Archive a task (or current active task) to permanent history and reset IDs if empty."""
         now = time.time()
         data = self._load_raw()
         if task_id is None:
@@ -234,6 +264,10 @@ class TaskStore:
         target["started_at"] = None
         target["status"] = "done"
         target["completed_at"] = datetime.now(timezone.utc).isoformat()
+        self._append_history(target, "completed")
+        data["tasks"] = [t for t in data["tasks"] if int(t["id"]) != int(target["id"])]
+        if not data["tasks"]:
+            data["next_id"] = 1
         self._save_raw(data)
         return target
 
@@ -258,9 +292,13 @@ class TaskStore:
             self._save_raw(data)
 
     def remove_task(self, task_id: int) -> dict[str, Any]:
-        """Remove a task by ID and reset next_id when no tasks remain."""
+        """Archive a removed task to permanent history and reset next_id if no tasks remain."""
+        now = time.time()
         data = self._load_raw()
         target = self._find_task(data, task_id)
+        target["elapsed_seconds"] = current_elapsed(target, now=now)
+        target["started_at"] = None
+        self._append_history(target, "removed")
         data["tasks"] = [t for t in data["tasks"] if int(t["id"]) != int(task_id)]
         if not data["tasks"]:
             data["next_id"] = 1

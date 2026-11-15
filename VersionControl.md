@@ -4,6 +4,13 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.3.0] — 2026-11-15
+
+### Added / Changed
+- `tasktimer/storage.py`: Added append-only permanent history log (`~/.local/share/tasktimer/history.jsonl`). Completed and removed tasks are archived to `history.jsonl` and cleared from `tasks.json`, automatically resetting `next_id` back to `1` whenever all tasks are completed or removed.
+- `tasktimer/cli.py`: Added `tt history [-n LIMIT]` subcommand and `[8] History` option in the interactive menu.
+- `tests/test_storage.py`, `README.md`, `CoderManual.md`: Updated tests and documentation for permanent history and automatic ID reset.
+
 ## [0.2.7] — 2026-11-15
 
 ### Changed

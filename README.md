@@ -15,7 +15,7 @@ A lightweight terminal task manager with a **native GNOME top-bar / floating tim
 
 - Symlinks: `~/.local/bin/tasktimer` and `~/.local/bin/tt` → `~/Projects/TaskTimer/bin/tasktimer`
 - Fish hook: `~/.config/fish/conf.d/tasktimer.fish`
-- Data file: `~/.local/share/tasktimer/tasks.json`
+- Data files: `~/.local/share/tasktimer/tasks.json` (active tasks) and `~/.local/share/tasktimer/history.jsonl` (permanent history log)
 
 ## Usage
 
@@ -34,6 +34,7 @@ tt pause
 tt start 1
 tt addtime 1 10m
 tt done 1
+tt history            # view permanent history
 tt indicator status   # start | stop | status
 ```
 

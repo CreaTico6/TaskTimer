@@ -1,7 +1,7 @@
 # TaskTimer — Coder Manual
 
 **Author:** `creatico6@github.com`  
-**Version:** `0.2.4`  
+**Version:** `0.3.0`  
 **Target Environment:** Unprivileged Linux Workstations (Ubuntu 22.04 LTS, GNOME Shell on X11, Fish shell, no `sudo`, no `pip` required)
 
 ---
@@ -57,7 +57,8 @@ TaskTimer/
 ```
 
 Runtime files (created automatically in XDG user directories):
-- `~/.local/share/tasktimer/tasks.json` — Persistent task list and timer state.
+- `~/.local/share/tasktimer/tasks.json` — Active task list and timer state (IDs reset to `1` when empty).
+- `~/.local/share/tasktimer/history.jsonl` — Append-only permanent history of completed and removed tasks.
 - `$XDG_RUNTIME_DIR/tasktimer-indicator.pid` — Single-instance lock for the GUI daemon.
 - `$XDG_RUNTIME_DIR/tasktimer_session_prompted_<UID>` — Per-login-session marker for Fish.
 - `~/.config/fish/conf.d/tasktimer.fish` — Fish startup hook (kept separate from `config.fish` so `TiDefinitions.sh` updates never overwrite it).

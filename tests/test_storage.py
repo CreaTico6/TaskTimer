@@ -63,6 +63,18 @@ class TaskStoreTests(unittest.TestCase):
         done = self.store.complete_task(t2["id"])
         self.assertEqual(done["status"], "done")
         self.assertIsNotNone(done["completed_at"])
+        # Completed task is archived to history and removed from active tasks
+        self.assertEqual([t["id"] for t in self.store.list_tasks()], [t1["id"]])
+
+        # Completing the remaining task resets next_id back to 1 while keeping history
+        self.store.complete_task(t1["id"])
+        self.assertEqual(self.store.list_tasks(), [])
+        t3 = self.store.add_task("New Cycle", 300)
+        self.assertEqual(t3["id"], 1)
+
+        history = self.store.list_history()
+        self.assertEqual([h["title"] for h in history], ["Study C", "Review PR"])
+        self.assertEqual([h["event"] for h in history], ["completed", "completed"])
 
     def test_add_time_resets_overtime_flag(self) -> None:
         t = self.store.add_task("Sprint", 10)
