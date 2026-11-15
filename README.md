@@ -2,7 +2,7 @@
 
 **Author:** `creatico6@github.com`
 
-A lightweight terminal task manager with a **native GNOME top-bar / floating timer indicator**, built to run **100% in userspace (no `sudo`, no `pip`)** on unprivileged Linux workstations (Ubuntu 22.04 / GNOME + `fish`).
+A lightweight terminal task manager with a **native GNOME top-bar / floating timer indicator**, built to run **100% in userspace (no `sudo`, no `pip`)** (Ubuntu 22.04 / GNOME + `fish`).
 
 ## Features
 
@@ -39,8 +39,8 @@ tt indicator status   # start | stop | status
 
 ## Documentation & Tests
 
-- See [CoderManual.md](CoderManual.md) for the full technical manual and reproduction guide.
-- See [plan.md](plan.md) for the architecture plan and [VersionControl.md](VersionControl.md) for the changelog.
+- See [CoderManual.md](CoderManual.md) for the full technical manual, architecture, and reproduction guide.
+- See [VersionControl.md](VersionControl.md) for the changelog and [LICENSE](LICENSE) for the MIT License.
 
 ```fish
 python3 -m unittest discover -s /home/tnuno-mo/Oficina/TaskTimer/tests -v

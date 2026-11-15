@@ -4,6 +4,13 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.2.2] — 2026-11-15
+
+### Added / Changed
+- Added `LICENSE` (MIT License).
+- Removed `plan.md` (superseded by `CoderManual.md`).
+- Updated `README.md`, `CoderManual.md`, and `VersionControl.md` to reflect the current repository structure and remove dead links.
+
 ## [0.2.1] — 2026-11-15
 
 ### Changed

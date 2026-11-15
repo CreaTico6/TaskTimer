@@ -1,7 +1,7 @@
 # TaskTimer — Coder Manual
 
 **Author:** `creatico6@github.com`  
-**Version:** `0.2.1`  
+**Version:** `0.2.2`  
 **Target Environment:** Unprivileged Linux Workstations (Ubuntu 22.04 LTS, GNOME Shell on X11, Fish shell, no `sudo`, no `pip` required)
 
 ---
@@ -50,8 +50,8 @@ TaskTimer/
 ├── tests/
 │   └── test_storage.py        # Unit tests (stdlib unittest)
 ├── CoderManual.md             # This manual
+├── LICENSE                    # MIT License
 ├── README.md                  # Quick-start user guide
-├── plan.md                    # Architecture & design plan
 └── VersionControl.md          # Changelog & version history
 ```
 
