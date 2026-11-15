@@ -4,6 +4,12 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.4.2] — 2026-11-15
+
+### Added / Changed
+- `README.md`: Embedded preview image `TaskTimer.jpg`.
+- `CoderManual.md`, `VersionControl.md`: Documented `TaskTimer.jpg` in the project layout.
+
 ## [0.4.1] — 2026-11-15
 
 ### Changed

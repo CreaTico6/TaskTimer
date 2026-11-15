@@ -4,6 +4,8 @@
 
 A lightweight terminal task manager with a **native GNOME top-bar / floating timer indicator**, built to run **100% in userspace (no `sudo`, no `pip`)** (Ubuntu 22.04 / GNOME + `fish`).
 
+![TaskTimer](TaskTimer.jpg)
+
 ## Features
 
 - **Smart `fish` startup**: On the first interactive terminal opened after login, prompts `[Y/n]` to start TaskTimer and activate the top-bar indicator. Never prompts again in subsequent terminal windows during the same login session.

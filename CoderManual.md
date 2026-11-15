@@ -52,6 +52,7 @@ TaskTimer/
 ├── CoderManual.md             # This manual
 ├── LICENSE                    # MIT License
 ├── README.md                  # Quick-start user guide
+├── TaskTimer.jpg              # Preview image displayed in README.md
 ├── uninstall.sh               # Interactive userspace uninstaller
 └── VersionControl.md          # Changelog & version history
 ```
