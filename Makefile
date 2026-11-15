@@ -48,8 +48,14 @@ gnome-ext:
 	@if command -v gnome-extensions >/dev/null 2>&1; then \
 		gnome-extensions enable tasktimer@creatico6 2>/dev/null || true; \
 	fi
-	@echo "Installed GNOME Shell extension in $(GNOME_EXT_DIR)"
-	@echo "Note: Reload GNOME Shell (Alt+F2 -> r on X11, or re-login) to activate the top-bar button."
+	@echo ""
+	@echo "=================================================================="
+	@echo "  GNOME Shell extension installed (tasktimer@creatico6)."
+	@echo "  ACTION REQUIRED to show the '⏱' button in the top bar:"
+	@echo "    Press  Alt+F2 -> r -> Enter   (or log out and log back in)"
+	@echo "  Then run: gnome-extensions enable tasktimer@creatico6"
+	@echo "=================================================================="
+	@echo ""
 
 fish:
 	@mkdir -p "$(FISH_CONF_DIR)"

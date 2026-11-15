@@ -4,6 +4,11 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.7.1] — 2026-11-15
+
+### Changed
+- `Makefile`: Made the post-install `Alt+F2 -> r -> Enter` (or re-login) GNOME Shell reload instruction explicit and prominent in `gnome-ext` / `make install`.
+
 ## [0.7.0] — 2026-11-15
 
 ### Added
