@@ -4,6 +4,12 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.5.0] — 2026-11-15
+
+### Added / Changed
+- `Makefile`: Added `install` (default), `fish`, `test`, and `uninstall` targets so `git clone ... && cd TaskTimer && make` installs everything in one step.
+- `README.md`, `CoderManual.md`, `VersionControl.md`: Updated installation instructions to use `make`.
+
 ## [0.4.3] — 2026-11-15
 
 ### Changed

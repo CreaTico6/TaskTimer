@@ -1,7 +1,7 @@
 # TaskTimer — Coder Manual
 
 **Author:** `creatico6@github.com`  
-**Version:** `0.3.0`  
+**Version:** `0.5.0`  
 **Target Environment:** Unprivileged Linux Workstations (Ubuntu 22.04 LTS, GNOME Shell on X11, Fish shell, no `sudo`, no `pip` required)
 
 ---
@@ -51,6 +51,7 @@ TaskTimer/
 │   └── test_storage.py        # Unit tests (stdlib unittest)
 ├── CoderManual.md             # This manual
 ├── LICENSE                    # MIT License
+├── Makefile                   # One-command userspace install, test, and uninstall
 ├── README.md                  # Quick-start user guide
 ├── TaskTimer.jpg              # Preview image displayed in README.md
 ├── uninstall.sh               # Interactive userspace uninstaller
@@ -156,15 +157,13 @@ Why `conf.d/tasktimer.fish`?
 ## 4. Reproducing From Scratch
 
 ```bash
-# 1. Ensure executable permissions and userspace symlinks
-chmod +x ~/Projects/TaskTimer/bin/tasktimer
-mkdir -p ~/.local/bin ~/.config/fish/conf.d
-ln -sf ~/Projects/TaskTimer/bin/tasktimer ~/.local/bin/tasktimer
-ln -sf ~/Projects/TaskTimer/bin/tasktimer ~/.local/bin/tt
+# 1. Clone and install in one step
+git clone https://github.com/CreaTico6/TaskTimer.git ~/Projects/TaskTimer
+cd ~/Projects/TaskTimer && make
 
 # 2. Verify Fish syntax and run unit tests
 fish -n ~/.config/fish/conf.d/tasktimer.fish
-python3 -m unittest discover -s ~/Projects/TaskTimer/tests -v
+make test
 
 # 3. Launch TaskTimer and top-bar indicator
 tt --startup

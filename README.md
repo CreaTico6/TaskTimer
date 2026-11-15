@@ -13,40 +13,24 @@ A lightweight terminal task manager with a **native GNOME top-bar / floating tim
 
 ## Installation (Userspace Only — No `sudo`, No `pip`)
 
-**Requirements:** Python `3.10+` with system GTK3 bindings (`python3-gi` / `Gtk 3.0` + `Gdk 3.0`), plus `notify-send` (optional, for desktop alerts).
+**Requirements:** Python `3.10+` with system GTK3 bindings (`python3-gi` / `Gtk 3.0` + `Gdk 3.0`), `make`, plus `notify-send` (optional, for desktop alerts).
 
-1. **Clone the repository and create command symlinks:**
+1. **Clone and install immediately with `make`:**
    ```bash
-   mkdir -p ~/Projects ~/.local/bin
    git clone https://github.com/CreaTico6/TaskTimer.git ~/Projects/TaskTimer
-   chmod +x ~/Projects/TaskTimer/bin/tasktimer
-   ln -sf ~/Projects/TaskTimer/bin/tasktimer ~/.local/bin/tasktimer
-   ln -sf ~/Projects/TaskTimer/bin/tasktimer ~/.local/bin/tt
+   cd ~/Projects/TaskTimer && make
    ```
+   This sets executable permissions, creates `~/.local/bin/tasktimer` and `~/.local/bin/tt`, and installs the once-per-login Fish hook in `~/.config/fish/conf.d/tasktimer.fish` (when `fish` is present).
 
 2. **Ensure `~/.local/bin` is in your `PATH`** (in Fish, run once):
    ```fish
    fish_add_path ~/.local/bin
    ```
 
-3. **(Optional) Enable the once-per-login Fish startup prompt:**
-   ```fish
-   mkdir -p ~/.config/fish/conf.d
-   cat <<'EOF' > ~/.config/fish/conf.d/tasktimer.fish
-   if status is-interactive; and command -sq tasktimer
-       set -l _tt_runtime (set -q XDG_RUNTIME_DIR; and echo $XDG_RUNTIME_DIR; or echo /tmp)
-       set -l _tt_marker "$_tt_runtime/tasktimer_session_prompted_"(id -u)
-       if not test -f "$_tt_marker"
-           touch "$_tt_marker"
-           echo ""
-           read -l -P "⏱  Open TaskTimer and activate the top-bar indicator? [Y/n] " _tt_ans
-           if test -z "$_tt_ans"; or string match -qi -r '^[sy]$' -- "$_tt_ans"
-               tasktimer --startup
-           end
-       end
-   end
-   EOF
-   ```
+3. **Available `make` targets:**
+   - `make` / `make install` — Install symlinks and Fish startup hook
+   - `make test` — Run the unit test suite
+   - `make uninstall` — Run the interactive uninstaller
 
 4. **Data files** (created automatically):
    - `~/.local/share/tasktimer/tasks.json` (active tasks)
