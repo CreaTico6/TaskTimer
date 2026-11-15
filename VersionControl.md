@@ -4,6 +4,11 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.4.3] — 2026-11-15
+
+### Changed
+- `README.md`: Added explicit step-by-step installation instructions (requirements, `git clone`, `chmod +x`, `~/.local/bin` symlinks, `PATH`, and optional Fish startup hook).
+
 ## [0.4.2] — 2026-11-15
 
 ### Added / Changed
