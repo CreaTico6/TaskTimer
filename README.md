@@ -1,10 +1,8 @@
-# TaskTimer
+![TaskTimer](TaskTimer.jpg)
 
-**Author:** `creatico6@github.com`
+**TaskTimer** by `creatico6@github.com`
 
 A lightweight terminal task manager with a **native GNOME top-bar / floating timer indicator**, built to run **100% in userspace (no `sudo`, no `pip`)** (Ubuntu 22.04 / GNOME + `fish`).
-
-![TaskTimer](TaskTimer.jpg)
 
 ## Features
 
