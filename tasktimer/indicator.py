@@ -15,6 +15,7 @@ from tasktimer.storage import (
     TaskStore,
     current_elapsed,
     format_duration,
+    get_data_dir,
     get_runtime_dir,
     remaining_seconds,
 )
@@ -54,6 +55,25 @@ def stop_indicator() -> bool:
     return True
 
 
+def _find_gtk_python() -> str:
+    """Return a Python interpreter that has PyGObject (Gtk 3.0 + Gdk 3.0) available."""
+    probe = "import gi; gi.require_version('Gtk','3.0'); gi.require_version('Gdk','3.0'); from gi.repository import Gtk, Gdk"
+    for candidate in dict.fromkeys([sys.executable, "/usr/bin/python3"]):
+        if not Path(candidate).exists():
+            continue
+        try:
+            subprocess.check_call(
+                [candidate, "-c", probe],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=3,
+            )
+            return candidate
+        except Exception:
+            continue
+    return sys.executable
+
+
 def start_indicator_background() -> tuple[bool, int | None]:
     """Start the indicator in the background if not already running.
 
@@ -66,13 +86,19 @@ def start_indicator_background() -> tuple[bool, int | None]:
     if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
         return False, None
 
-    proc = subprocess.Popen(
-        [sys.executable, "-m", "tasktimer.indicator"],
-        cwd=str(Path(__file__).resolve().parent.parent),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+    log_path = get_data_dir() / "indicator.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_file = log_path.open("a", encoding="utf-8")
+    try:
+        proc = subprocess.Popen(
+            [_find_gtk_python(), "-m", "tasktimer.indicator"],
+            cwd=str(Path(__file__).resolve().parent.parent),
+            stdout=subprocess.DEVNULL,
+            stderr=log_file,
+            start_new_session=True,
+        )
+    finally:
+        log_file.close()
     return True, proc.pid
 
 
@@ -294,6 +320,7 @@ class TaskTimerCardPopup:
         self.Gdk = controller.Gdk
         self._card_signature: tuple[Any, ...] | None = None
         self._last_focus_out = 0.0
+        self._shown_at = 0.0
         self._time_label: Any = None
         self._progress_bar: Any = None
 
@@ -315,6 +342,8 @@ class TaskTimerCardPopup:
         self.popup.add(self.root_box)
 
     def _on_focus_out(self, _widget: Any, _event: Any) -> bool:
+        if (time.monotonic() - self._shown_at) < 0.15:
+            return False
         self._last_focus_out = time.monotonic()
         self.hide()
         return False
@@ -336,6 +365,7 @@ class TaskTimerCardPopup:
         if self.popup.get_visible() or (time.monotonic() - self._last_focus_out) < 0.18:
             self.hide()
             return
+        self._shown_at = time.monotonic()
         self.update(force=True)
         self.popup.show_all()
         self._position_near(anchor_window)
@@ -349,6 +379,8 @@ class TaskTimerCardPopup:
         aw, ah = anchor_window.get_size()
         pw, ph = self.popup.get_size()
         monitor = display.get_monitor_at_point(ax, ay) or display.get_primary_monitor() or display.get_monitor(0)
+        if monitor is None:
+            return
         work = monitor.get_workarea()
 
         x = min(max(work.x + 8, ax + aw - pw), work.x + work.width - pw - 8)

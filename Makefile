@@ -4,19 +4,29 @@ BIN_DIR := $(HOME)/.local/bin
 FISH_CONF_DIR := $(HOME)/.config/fish/conf.d
 ROOT_DIR := $(CURDIR)
 
-.PHONY: install fish test uninstall help
+.PHONY: install deps fish test uninstall help
 
 help:
 	@printf '%s\n' \
 		'TaskTimer Makefile targets:' \
-		'  make            Install symlinks (~/.local/bin) and Fish startup hook (default)' \
+		'  make            Install dependencies if missing, symlinks, and Fish hook (default)' \
 		'  make install    Same as make' \
+		'  make deps       Check GTK3 bindings and install PyGObject in userspace if missing' \
 		'  make fish       Install only the Fish startup hook' \
 		'  make test       Run the unit test suite' \
 		'  make uninstall  Run the interactive uninstaller' \
 		'  make help       Show this help message'
 
-install:
+deps:
+	@if python3 -c "import gi; gi.require_version('Gtk','3.0'); gi.require_version('Gdk','3.0'); from gi.repository import Gtk, Gdk" 2>/dev/null || \
+	    /usr/bin/python3 -c "import gi; gi.require_version('Gtk','3.0'); gi.require_version('Gdk','3.0'); from gi.repository import Gtk, Gdk" 2>/dev/null; then \
+		echo "GTK3 bindings (python3-gi) already available."; \
+	else \
+		echo "Installing PyGObject in userspace..."; \
+		python3 -m pip install --user PyGObject; \
+	fi
+
+install: deps
 	@chmod +x "$(ROOT_DIR)/bin/tasktimer" "$(ROOT_DIR)/uninstall.sh"
 	@mkdir -p "$(BIN_DIR)"
 	@ln -sf "$(ROOT_DIR)/bin/tasktimer" "$(BIN_DIR)/tasktimer"

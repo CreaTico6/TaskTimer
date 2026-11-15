@@ -4,6 +4,12 @@
 
 > This file tracks all versions and changes made to **TaskTimer**. It must be updated whenever code or documentation changes.
 
+## [0.5.2] — 2026-11-15
+
+### Fixed / Improved
+- `tasktimer/indicator.py`: Added `_find_gtk_python()` to fall back to `/usr/bin/python3` when the active `PATH` Python lacks `PyGObject`, logged background stderr to `~/.local/share/tasktimer/indicator.log`, guarded `monitor is None` in `_position_near()`, and ignored spurious `focus-out-event` within 150ms of opening `TaskTimerCardPopup`.
+- `Makefile`: Added `deps` target (runs during `make install`) that checks for `Gtk 3.0`/`Gdk 3.0` bindings and installs `PyGObject` in userspace only if missing.
+
 ## [0.5.1] — 2026-11-15
 
 ### Added
